@@ -1,0 +1,32 @@
+name: Build and deploy
+on:
+  push: {branches: [main]}
+  workflow_dispatch: {}
+permissions: {contents: read, pages: write, id-token: write}
+concurrency: {group: pages, cancel-in-progress: true}
+env:
+  WJAZZD_URL: ${{ vars.WJAZZD_URL || 'https://jazzomat.hfm-weimar.de/download/downloads/wjazzd.db' }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Download the Weimar Jazz Database
+        run: |
+          curl -fL --retry 3 -o dl.bin "$WJAZZD_URL" || { echo "::warning::Download failed. The site will use demo data."; exit 0; }
+          if unzip -tq dl.bin >/dev/null 2>&1; then unzip -o dl.bin -d dl && find dl -name '*.db' -exec mv {} wjazzd.db \; ; else mv dl.bin wjazzd.db; fi
+      - name: Build the search index
+        run: |
+          if [ -s wjazzd.db ]; then python build_index.py wjazzd.db site/data.json; else echo "::warning::No database. Deploying demo data only."; fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: {path: site}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: {name: github-pages, url: '${{ steps.d.outputs.page_url }}'}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4

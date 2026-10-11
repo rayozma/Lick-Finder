@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lick Finder</title>
+<meta name="description" content="Search transcribed jazz solos for a melody. See who played it, where in the track, and when.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4efe4;--paper:#fbf8f1;--ink:#1d1a16;--muted:#6b6358;--line:#d9d0bf;--accent:#c4421b;--accent-ink:#fff;--soft:#efe6d4;--hit:#f6d9c9;--wk:#fffdf8;--bk:#1d1a16;--ok:#2f6b4f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161b;--paper:#1b1e25;--ink:#ece6d8;--muted:#9a9384;--line:#2e323b;--accent:#ef7a4f;--accent-ink:#14161b;--soft:#232731;--hit:#4a2c22;--wk:#e9e3d5;--bk:#0b0c0f;--ok:#7cc4a0}}
+:root[data-theme="dark"]{--bg:#14161b;--paper:#1b1e25;--ink:#ece6d8;--muted:#9a9384;--line:#2e323b;--accent:#ef7a4f;--accent-ink:#14161b;--soft:#232731;--hit:#4a2c22;--wk:#e9e3d5;--bk:#0b0c0f;--ok:#7cc4a0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:28px 16px 64px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:22px}
+h1{font:700 clamp(34px,6vw,54px)/1 Fraunces,serif;margin:0;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+.tag{margin:6px 0 0;color:var(--muted);max-width:52ch}
+.mono{font-family:"IBM Plex Mono",monospace}
+.banner{background:var(--hit);border-left:4px solid var(--accent);padding:10px 14px;margin-bottom:18px;font-size:14px}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px}
+.label{font:500 12px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;align-items:center;margin-bottom:12px}
+.chip{font:500 15px "IBM Plex Mono",monospace;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:5px 9px}
+.chip small{color:var(--muted);font-size:11px;margin-left:3px}
+.iv{color:var(--muted);font:12px "IBM Plex Mono",monospace}
+.empty{color:var(--muted);font-style:italic}
+input[type=text]{width:100%;font:15px "IBM Plex Mono",monospace;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input[type=text]:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.err{color:var(--accent);font-size:13px;min-height:18px;margin-top:4px}
+.kbd-scroll{overflow-x:auto;margin:12px 0 14px;padding-bottom:4px}
+.kbd{position:relative;height:118px;display:flex;user-select:none;min-width:620px}
+.wk{flex:1;background:var(--wk);border:1px solid #8c8577;border-radius:0 0 5px 5px;margin-right:-1px;cursor:pointer;position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;font:10px "IBM Plex Mono",monospace;color:#8c8577}
+.bk{position:absolute;top:0;height:72px;background:var(--bk);border-radius:0 0 4px 4px;cursor:pointer;z-index:2;border:1px solid #000}
+.wk.on{background:#f3b79e}.bk.on{background:var(--accent)}
+.wk:active{background:#eadfc9}.bk:active{background:#444}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,select{font:500 14px "IBM Plex Sans",sans-serif;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:8px 13px;cursor:pointer}
+button:hover{border-color:var(--ink)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.ghost{background:transparent}
+.spacer{flex:1}
+.stats{color:var(--muted);font-size:13px;margin-top:10px}
+.summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:18px;margin-bottom:18px}
+@media (max-width:760px){.summary{grid-template-columns:1fr}}
+.first h3{font:700 26px/1.15 Fraunces,serif;margin:2px 0 6px}
+.first .yr{font:700 44px/1 Fraunces,serif;color:var(--accent)}
+.note{font-size:13px;color:var(--muted);margin:8px 0 0}
+.hist{display:flex;align-items:flex-end;gap:6px;height:120px;padding-top:6px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.bar i{display:block;width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+.bar i.zero{background:var(--line)}
+.bar b{font:500 11px "IBM Plex Mono",monospace;margin-bottom:3px}
+.bar span{font:11px "IBM Plex Mono",monospace;color:var(--muted);margin-top:4px;white-space:nowrap}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font:500 12px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px;border-bottom:2px solid var(--ink);white-space:nowrap}
+th[data-k]{cursor:pointer}
+th[data-k]:hover{color:var(--ink)}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.earliest td{background:var(--hit)}
+td.y{font:500 15px "IBM Plex Mono",monospace}
+td .sub{display:block;color:var(--muted);font-size:12px}
+.pill{font:11px "IBM Plex Mono",monospace;border:1px solid var(--line);border-radius:20px;padding:1px 7px;white-space:nowrap}
+.pill.exact{color:var(--ok);border-color:var(--ok)}
+.play{padding:4px 9px;font-size:13px}
+.more{margin-top:12px}
+footer{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<div><h1>Lick <span>Finder</span></h1><p class="tag">Find a melody in transcribed jazz solos. See who played it, where in the track, and when.</p></div>
+<button class="ghost" id="theme" aria-label="Toggle dark mode">◐ Theme</button>
+</header>
+<div id="banner" class="banner" hidden></div>
+<section class="panel">
+<p class="label">Your melody</p>
+<div class="chips" id="chips"></div>
+<input type="text" id="txt" spellcheck="false" autocomplete="off" aria-label="Notes" placeholder="Type notes, e.g. D4 E4 F4 G4 E4 C4 D4, or click the keys">
+<div class="err" id="err"></div>
+<div class="kbd-scroll"><div class="kbd" id="kbd" aria-label="Piano keyboard"></div></div>
+<div class="row">
+<button id="lick">♪ The Lick</button>
+<button id="playq">▶ Play</button>
+<button id="undo">Undo</button>
+<button id="clear">Clear</button>
+<span class="spacer"></span>
+<select id="mode" aria-label="Match mode"><option value="0">Exact intervals</option><option value="1">Allow 1 changed note</option></select>
+<button class="primary" id="go">Search</button>
+</div>
+<p class="stats" id="stats">Loading data…</p>
+</section>
+<section id="results" hidden>
+<div class="summary">
+<div class="panel first" id="first"></div>
+<div class="panel"><p class="label">Matches by decade of recording</p><div class="hist" id="hist"></div></div>
+</div>
+<div class="panel">
+<p class="label" id="count"></p>
+<div class="tablewrap"><table><thead><tr>
+<th data-k="y">Year ↕</th><th data-k="p">Performer ↕</th><th data-k="t">Title ↕</th><th data-k="i">Instr.</th><th data-k="at">Where ↕</th><th data-k="mm">Match ↕</th><th></th>
+</tr></thead><tbody id="tbody"></tbody></table></div>
+<button class="more" id="more" hidden>Show more</button>
+</div>
+</section>
+<footer>
+<p>Matching uses note intervals, so a melody matches in any key. Rhythm is ignored. "Earliest" means earliest in this dataset, not the first use ever.</p>
+<p id="credit"></p>
+</footer>
+</div>
+<script>
+const NAMES=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'],LICK=[62,64,65,67,64,60,62],LO=48,HI=84
+const INSTR={ts:'tenor sax',as:'alto sax',ss:'soprano sax',bs:'baritone sax',tp:'trumpet',tb:'trombone',p:'piano',g:'guitar',cl:'clarinet',vib:'vibraphone',bcl:'bass clarinet',cor:'cornet',b:'bass'}
+const $=id=>document.getElementById(id)
+const nm=p=>NAMES[p%12]+(Math.floor(p/12)-1)
+const fmt=s=>{s=Math.max(0,s);const m=Math.floor(s/60),x=Math.floor(s%60);return m+':'+String(x).padStart(2,'0')}
+let solos=[],q=[],hits=[],sortK='y',sortD=1,shown=100
+function parse(str){const out=[];for(const tk of str.trim().split(/[\s,]+/).filter(Boolean)){if(/^\d+$/.test(tk)){out.push(+tk);continue}
+const m=tk.match(/^([A-Ga-g])([#♯b♭]?)(-?\d)?$/);if(!m)throw new Error('Cannot read "'+tk+'". Use names like C4, Eb4, F#3, or MIDI numbers.')
+let p={c:0,d:2,e:4,f:5,g:7,a:9,b:11}[m[1].toLowerCase()]+(m[2]==='#'||m[2]==='♯'?1:m[2]?-1:0);out.push(12*((m[3]===undefined?4:+m[3])+1)+p)}return out}
+const toText=a=>a.map(p=>nm(p).replace('♯','#').replace('♭','b')).join(' ')
+function setQ(a,fromText){q=a;if(!fromText)$('txt').value=toText(q);$('err').textContent='';renderQ()}
+function renderQ(){const c=$('chips');c.innerHTML='';if(!q.length){c.innerHTML='<span class="empty">No notes yet</span>'}
+q.forEach((p,i)=>{if(i){const d=p-q[i-1],s=document.createElement('span');s.className='iv';s.textContent=(d>0?'+':'')+d;c.appendChild(s)}const e=document.createElement('span');e.className='chip';e.innerHTML=nm(p).replace(/(-?\d+)$/,'<small>$1</small>');c.appendChild(e)})
+document.querySelectorAll('[data-p]').forEach(k=>k.classList.toggle('on',q.includes(+k.dataset.p)))}
+function buildKbd(){const k=$('kbd'),whites=[];for(let p=LO;p<=HI;p++)if(![1,3,6,8,10].includes(p%12))whites.push(p)
+const w=100/whites.length;whites.forEach(p=>{const b=document.createElement('div');b.className='wk';b.dataset.p=p;b.setAttribute('role','button');b.setAttribute('aria-label',nm(p));if(p%12===0)b.textContent=nm(p);k.appendChild(b)})
+for(let p=LO;p<=HI;p++)if([1,3,6,8,10].includes(p%12)){const i=whites.indexOf(p-1),b=document.createElement('div');b.className='bk';b.dataset.p=p;b.setAttribute('role','button');b.setAttribute('aria-label',nm(p));b.style.left=`calc(${(i+1)*w}% - ${w*0.32}%)`;b.style.width=w*0.64+'%';k.appendChild(b)}
+k.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-p]');if(!t)return;const p=+t.dataset.p;tone([{p,t:0,d:.35}]);setQ([...q,p])})}
+let ac,voices=[]
+function tone(ns){ac=ac||new (window.AudioContext||window.webkitAudioContext)();voices.forEach(v=>{try{v.stop()}catch(e){}});voices=[];const t0=ac.currentTime+.05
+for(const n of ns){const o=ac.createOscillator(),g=ac.createGain(),s=t0+n.t,d=Math.max(.08,Math.min(n.d,1.2));o.type='triangle';o.frequency.value=440*Math.pow(2,(n.p-69)/12)
+g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(.22,s+.012);g.gain.exponentialRampToValueAtTime(.001,s+d+.08);o.connect(g).connect(ac.destination);o.start(s);o.stop(s+d+.1);voices.push(o)}}
+function search(q,tol){const n=q.length,res=[]
+for(const s of solos){const p=s.pi;for(let i=0;i+n<=p.length;i++){let best=-1,off=0
+for(const c of [p[i]-q[0],p[i+n-1]-q[n-1]]){let mm=0;for(let j=0;j<n&&mm<=tol;j++)if(p[i+j]-q[j]!==c)mm++;if(mm<=tol&&(best<0||mm<best)){best=mm;off=c}}
+if(best>=0){const t=s.on[i],e=s.on[i+n-1]+s.du[i+n-1];res.push({s,i,n,mm:best,off,y:s.y,p:s.p||'',t:s.t||'',iN:INSTR[s.i]||s.i||'',at:(s.s??0)+t,rel:t,end:e});i+=n-1}}}return res}
+function run(){if(q.length<4){$('err').textContent='Enter at least 4 notes. Shorter melodies match almost everywhere.';return}
+const tol=+$('mode').value;if(tol&&q.length<6){$('err').textContent='"Allow 1 changed note" needs at least 6 notes.';return}
+$('err').textContent='';hits=search(q,tol);shown=100;$('results').hidden=false;renderSummary();renderTable()}
+function cmp(a,b){const k=sortK;let x=a[k],y=b[k];if(k==='y'){if(x==null&&y==null)return a.at-b.at;if(x==null)return 1;if(y==null)return -1}
+if(typeof x==='string')return sortD*x.localeCompare(y)||(a.y??9999)-(b.y??9999);return sortD*(x-y)||(a.y??9999)-(b.y??9999)}
+function renderSummary(){const solosHit=new Set(hits.map(h=>h.s.id)).size,dated=hits.filter(h=>h.y!=null),noYear=hits.length-dated.length
+$('count').textContent=`${hits.length} match${hits.length===1?'':'es'} in ${solosHit} solo${solosHit===1?'':'s'} (of ${solos.length})`
+const f=$('first');if(!dated.length){f.innerHTML='<p class="label">Earliest use</p><h3>'+(hits.length?'No dated matches':'No matches')+'</h3><p class="note">'+(hits.length?'':'Try "Allow 1 changed note", or a shorter melody.')+'</p>'}
+else{const y0=Math.min(...dated.map(h=>h.y)),first=dated.filter(h=>h.y===y0),names=[...new Set(first.map(h=>h.p))]
+f.innerHTML=`<p class="label">Earliest in this dataset</p><div class="yr">${y0}</div><h3>${esc(names.slice(0,3).join(', '))}${names.length>3?' +'+(names.length-3):''}</h3><p class="mono" style="margin:0;font-size:13px">${esc(first[0].t)}</p><p class="note">This is the earliest recording in the data that contains the melody. Players likely used it before this date.${noYear?` ${noYear} match${noYear>1?'es have':' has'} no year.`:''}</p>`}
+const h=$('hist');h.innerHTML='';if(!dated.length)return
+const all=solos.filter(s=>s.y).map(s=>s.y),d0=Math.floor(Math.min(...all)/10)*10,d1=Math.floor(Math.max(...all)/10)*10,cnt={}
+dated.forEach(x=>{const d=Math.floor(x.y/10)*10;cnt[d]=(cnt[d]||0)+1});const mx=Math.max(...Object.values(cnt))
+for(let d=d0;d<=d1;d+=10){const c=cnt[d]||0,b=document.createElement('div');b.className='bar';b.innerHTML=`<b>${c||''}</b><i class="${c?'':'zero'}" style="height:${c?Math.max(4,c/mx*85):2}%"></i><span>${String(d).slice(2)}s</span>`;b.title=`${d}s: ${c} match${c===1?'':'es'}`;h.appendChild(b)}}
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+function renderTable(){hits.sort(cmp);const tb=$('tbody'),y0=Math.min(...hits.filter(h=>h.y!=null).map(h=>h.y));tb.innerHTML=''
+hits.slice(0,shown).forEach((h,ix)=>{const tr=document.createElement('tr');if(h.y===y0)tr.className='earliest'
+const where=h.s.s!=null?`${fmt(h.at)} – ${fmt(h.s.s+h.end)}<span class="sub">in track</span>`:`${fmt(h.rel)} – ${fmt(h.end)}<span class="sub">into solo</span>`
+tr.innerHTML=`<td class="y">${h.y??'—'}</td><td>${esc(h.p)}<span class="sub">${esc(h.s.st||'')}</span></td><td>${esc(h.t)}</td><td>${esc(h.iN)}</td><td class="mono">${where}</td><td><span class="pill ${h.mm?'':'exact'}">${h.mm?'1 note changed':'exact'}</span><span class="sub">starts on ${nm(h.s.pi[h.i])}</span></td><td><button class="play" data-ix="${ix}" aria-label="Play match">▶</button></td>`;tb.appendChild(tr)})
+const more=$('more');more.hidden=hits.length<=shown;more.textContent=`Show more (${hits.length-shown} left)`
+document.querySelectorAll('th[data-k]').forEach(th=>{const k=th.dataset.k;th.textContent=th.textContent.replace(/ [↕↑↓]$/,'')+(k===sortK?(sortD>0?' ↑':' ↓'):' ↕')})}
+$('tbody').addEventListener('click',e=>{const b=e.target.closest('.play');if(!b)return;const h=hits[+b.dataset.ix],s=h.s,a=Math.max(0,h.i-3),z=Math.min(s.pi.length,h.i+h.n+3),t0=s.on[a]
+tone(Array.from({length:z-a},(_,k)=>({p:s.pi[a+k],t:s.on[a+k]-t0,d:s.du[a+k]})))})
+document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;sortD=k===sortK?-sortD:1;sortK=k;renderTable()}))
+$('more').onclick=()=>{shown+=100;renderTable()}
+$('txt').addEventListener('input',e=>{try{setQ(parse(e.target.value),true)}catch(x){$('err').textContent=x.message}})
+$('txt').addEventListener('keydown',e=>{if(e.key==='Enter')run()})
+$('lick').onclick=()=>{setQ(LICK.slice());tone(q.map((p,i)=>({p,t:i*.17,d:.16})));run()}
+$('playq').onclick=()=>q.length&&tone(q.map((p,i)=>({p,t:i*.22,d:.2})))
+$('undo').onclick=()=>setQ(q.slice(0,-1))
+$('clear').onclick=()=>{setQ([]);$('results').hidden=true}
+$('go').onclick=run
+$('mode').onchange=()=>{if(!$('results').hidden)run()}
+$('theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark';try{localStorage.setItem('theme',r.dataset.theme)}catch(e){}}
+try{const t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
+async function load(){let d;try{const r=await fetch('data.json');if(!r.ok)throw 0;d=await r.json()}catch(e){d=await (await fetch('sample.json')).json()}
+solos=d.solos;const n=solos.reduce((a,s)=>a+s.pi.length,0),ys=solos.map(s=>s.y).filter(Boolean)
+$('stats').textContent=`${solos.length} solos · ${n.toLocaleString()} notes · recorded ${Math.min(...ys)}–${Math.max(...ys)}`
+$('credit').textContent='Data: '+d.source+(d.built?' · built '+d.built:'')
+if(d.demo){$('banner').hidden=false;$('banner').innerHTML='<b>Demo data.</b> These solos are synthetic, not real recordings. The real site loads the Weimar Jazz Database when it is deployed.'}}
+buildKbd();renderQ();load()
+</script>
+</body>
+</html>
