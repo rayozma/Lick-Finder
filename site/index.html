@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lick Finder</title>
-<meta name="description" content="Search transcribed jazz solos and folk songs for a melody. See who played it, where in the track, and when.">
+<meta name="description" content="Search transcribed jazz solos, folk songs, and pop songs for a melody. See who played it, where in the track, and when.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -83,7 +83,7 @@ footer a{color:inherit}
 <body>
 <div class="wrap">
 <header>
-<div><h1>Lick <span>Finder</span></h1><p class="tag">Find a melody in transcribed jazz solos and folk tunes. See who played it, where in the track, and when.</p></div>
+<div><h1>Lick <span>Finder</span></h1><p class="tag">Find a melody in jazz solos, folk tunes, and pop songs. See who played it, where in the track, and when.</p></div>
 <button class="ghost" id="theme" aria-label="Toggle dark mode" style="width:40px;height:40px;padding:0;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
 </header>
 <div id="banner" class="banner" hidden></div>
@@ -156,7 +156,7 @@ $('err').textContent='';hits=search(q,tol,$('genre').value);shown=100;$('results
 function cmp(a,b){const k=sortK;let x=a[k],y=b[k];if(k==='y'){if(x==null&&y==null)return a.at-b.at;if(x==null)return 1;if(y==null)return -1}
 if(typeof x==='string')return sortD*x.localeCompare(y)||(a.y??9999)-(b.y??9999);return sortD*(x-y)||(a.y??9999)-(b.y??9999)}
 function renderSummary(){const solosHit=new Set(hits.map(h=>h.s.id)).size,dated=hits.filter(h=>h.y!=null),noYear=hits.length-dated.length
-$('count').textContent=`${hits.length} match${hits.length===1?'':'es'} in ${solosHit} solo${solosHit===1?'':'s'} or tune${solosHit===1?'':'s'}`
+$('count').textContent=`${hits.length} match${hits.length===1?'':'es'} in ${solosHit} piece${solosHit===1?'':'s'}`
 const f=$('first');if(!dated.length){f.innerHTML='<p class="label">Earliest use</p><h3>'+(hits.length?'No dated matches':'No matches')+'</h3><p class="note">'+(hits.length?'Traditional tunes have no recording year. Sort by another column to explore the matches.':'Try "Allow 1 changed note", or a shorter melody.')+'</p>'}
 else{const y0=Math.min(...dated.map(h=>h.y)),first=dated.filter(h=>h.y===y0),names=[...new Set(first.map(h=>h.p))]
 f.innerHTML=`<p class="label">Earliest in this dataset</p><div class="yr">${y0}</div><h3>${esc(names.slice(0,3).join(', '))}${names.length>3?' +'+(names.length-3):''}</h3><p class="mono" style="margin:0;font-size:13px;color:var(--muted)">${esc(first[0].t)}</p><p class="note">This is the earliest recording in the data that contains the melody. Players likely used it before this date.${noYear?` ${noYear} match${noYear>1?'es have':' has'} no year.`:''}</p>`}
@@ -185,14 +185,20 @@ $('go').onclick=run
 $('mode').onchange=$('genre').onchange=()=>{if(!$('results').hidden)run()}
 $('theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark';try{localStorage.setItem('theme',r.dataset.theme)}catch(e){}}
 try{const t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
-const FILES=['data.json','thesession.json','esac.json']
-const get=async f=>{try{const r=await fetch(f);return r.ok?await r.json():null}catch(e){return null}}
+const FILES=['data.json','thesession.json','esac.json','lakh.json']
+// A source may keep its notes in a binary file (see build_lakh.py): planes of pitch (uint8), onset delta and duration (uint16 LE, centiseconds).
+async function unpack(d){const r=await fetch(d.bin);if(!r.ok)throw 0;let b=new Uint8Array(await r.arrayBuffer())
+if(b[0]===0x1f&&b[1]===0x8b)b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer())
+const N=b.length/5,dv=new DataView(b.buffer,b.byteOffset,b.length),pi=b.subarray(0,N),on=new Float32Array(N),du=new Float32Array(N);let k=0
+for(const s of d.solos){let t=0;for(let j=k;j<k+s.n;j++){t+=dv.getUint16(N+2*j,true)/100;on[j]=t;du[j]=dv.getUint16(3*N+2*j,true)/100}
+s.pi=pi.subarray(k,k+s.n);s.on=on.subarray(k,k+s.n);s.du=du.subarray(k,k+s.n);k+=s.n}return d}
+const get=async f=>{try{const r=await fetch(f);if(!r.ok)return null;const d=await r.json();return d.bin?await unpack(d):d}catch(e){return null}}
 async function load(){let ds=(await Promise.all(FILES.map(get))).filter(Boolean);if(!ds.length)ds=[await get('sample.json')]
 solos=ds.flatMap(d=>d.solos.map(s=>(s.g=s.g||d.genre||'Jazz',s)))
 const gs=[...new Set(solos.map(s=>s.g))].sort(),c={};solos.forEach(s=>c[s.g]=(c[s.g]||0)+1)
 $('genre').innerHTML='<option value="">All genres</option>'+gs.map(g=>`<option value="${esc(g)}">${esc(g)} (${c[g].toLocaleString()})</option>`).join('');$('genre').hidden=gs.length<2
 const n=solos.reduce((a,s)=>a+s.pi.length,0),ys=solos.map(s=>s.y).filter(Boolean)
-$('stats').textContent=`${solos.length.toLocaleString()} solos and tunes · ${n.toLocaleString()} notes`+(ys.length?` · recorded ${Math.min(...ys)}–${Math.max(...ys)}`:'')
+$('stats').textContent=`${solos.length.toLocaleString()} pieces · ${n.toLocaleString()} notes`+(ys.length?` · dated ${Math.min(...ys)}–${Math.max(...ys)}`:'')
 $('credit').textContent='Data: '+ds.map(d=>d.source+(d.built?' (built '+d.built+')':'')).join(' · ')
 if(ds.some(d=>d.demo)){$('banner').hidden=false;$('banner').innerHTML='<b>Demo data.</b> These solos are synthetic, not real recordings. The real site loads the Weimar Jazz Database when it is deployed.'}}
 buildKbd();renderQ();load()

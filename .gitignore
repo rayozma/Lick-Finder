@@ -4,6 +4,9 @@ dl/
 site/data.json
 site/thesession.json
 site/esac.json
+site/lakh.json
+site/lakh.bin.gz
+lmd/
 esac.db
 tunes.json
 __pycache__/

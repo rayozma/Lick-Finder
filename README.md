@@ -34,6 +34,12 @@ The app also searches about 23,000 Irish traditional tunes from [The Session](ht
 
 The app also searches the [EsAC Folk Song Database](https://jazzomat.hfm-weimar.de/download/download.html) (about 7,300 songs, mostly German and other European folk songs). It uses the same database format as WJazzD, so `build_index.py` converts it to `site/esac.json`. These songs have no year. To change the download URL, set the variable `ESAC_URL`.
 
+### Pop songs
+
+The app also searches melodies from the [Lakh MIDI Dataset](https://colinraffel.com/projects/lmd/) (LMD-matched, CC BY 4.0). `build_lakh.py` uses only MIDI files that have a track named like a melody or vocal part, and takes the highest note at each moment of that track. All songs are in the genre "Pop & rock". Artist, title and year come from the [Million Song Dataset](http://millionsongdataset.com/), and the style shown under the artist comes from the [tagtraum](https://www.tagtraum.com/msd_genre_datasets.html) labels (about a quarter of the songs have one). The notes are in a gzipped binary file (`site/lakh.bin.gz`) to keep the download small.
+
+The download is 1.4 GB, so the workflow caches the result. It builds again only when `build_lakh.py` changes. MIDI files are made by fans, and the Million Song Dataset year is the release year of the album, which is sometimes a later compilation or simply wrong.
+
 To add another source, write a script that outputs the same JSON format (`{source, genre, solos:[{id,p,t,i,st,y,s,on,pi,du}]}`) and add the file name to `FILES` in `site/index.html`.
 
 ## Limits
@@ -48,6 +54,7 @@ To add another source, write a script that outputs the same JSON format (`{sourc
 python build_index.py path/to/wjazzd.db site/data.json
 python build_thesession.py path/to/tunes.json site/thesession.json
 python build_index.py path/to/esac.db site/esac.json
+python build_lakh.py path/to/lmd-folder site/lakh.json
 cd site && python -m http.server 8000
 ```
 

@@ -7,6 +7,9 @@ concurrency: {group: pages, cancel-in-progress: true}
 env:
   WJAZZD_URL: ${{ vars.WJAZZD_URL || 'https://jazzomat.hfm-weimar.de/download/downloads/wjazzd.db' }}
   ESAC_URL: ${{ vars.ESAC_URL || 'https://jazzomat.hfm-weimar.de/download/downloads/esac.db' }}
+  LMD_URL: ${{ vars.LMD_URL || 'http://hog.ee.columbia.edu/craffel/lmd' }}
+  MSD_URL: ${{ vars.MSD_URL || 'http://millionsongdataset.com/sites/default/files/AdditionalFiles' }}
+  TAGTRAUM_URL: ${{ vars.TAGTRAUM_URL || 'https://www.tagtraum.com/genres/msd_tagtraum_cd2c.cls.zip' }}
   THESESSION_URL: ${{ vars.THESESSION_URL || 'https://raw.githubusercontent.com/adactio/TheSession-data/main/json/tunes.json' }}
 jobs:
   build:
@@ -28,6 +31,19 @@ jobs:
       - name: Build the folk tune index (The Session)
         run: |
           if curl -fL --retry 3 -o tunes.json "$THESESSION_URL"; then python build_thesession.py tunes.json site/thesession.json; else echo "::warning::The Session download failed. Deploying without folk tunes."; fi
+      - name: Restore the pop song index (Lakh MIDI)
+        id: lakh
+        uses: actions/cache@v4
+        with: {path: 'site/lakh.*', key: "lakh-${{ hashFiles('build_lakh.py') }}"}
+      - name: Build the pop song index (Lakh MIDI)
+        if: steps.lakh.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p lmd && cd lmd
+          for f in "$LMD_URL/lmd_matched.tar.gz" "$LMD_URL/match_scores.json" "$MSD_URL/unique_tracks.txt" "$MSD_URL/tracks_per_year.txt" "$TAGTRAUM_URL"; do
+            curl -fL --retry 3 -O "$f" || { echo "::warning::Download failed: $f. Deploying without pop songs."; exit 0; }
+          done
+          unzip -o -q msd_tagtraum_cd2c.cls.zip && cd ..
+          pip install -q pretty_midi && python build_lakh.py lmd site/lakh.json && rm -rf lmd
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: {path: site}
