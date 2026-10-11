@@ -26,6 +26,12 @@ Before you publish, read the WJazzD license and give the attribution that it req
 
 If the download URL changes, set a repository variable `WJAZZD_URL` (Settings → Secrets and variables → Actions → Variables).
 
+### Irish traditional tunes
+
+The app also searches about 23,000 Irish traditional tunes from [The Session](https://thesession.org/) ([data dump](https://github.com/adactio/TheSession-data)). The workflow downloads `tunes.json` and `build_thesession.py` converts the ABC notation to `site/thesession.json`. It uses the first setting of each tune and does not expand repeats. These tunes have no recording year, so they do not count for "earliest". Use the genre menu to search one genre. To change the download URL, set the variable `THESESSION_URL`.
+
+To add another source, write a script that outputs the same JSON format (`{source, genre, solos:[{id,p,t,i,st,y,s,on,pi,du}]}`) and add the file name to `FILES` in `site/index.html`.
+
 ## Limits
 
 - "Earliest" means the earliest recording in this dataset. It does not mean the first use. Musicians often played a phrase before it was recorded.
@@ -36,6 +42,7 @@ If the download URL changes, set a repository variable `WJAZZD_URL` (Settings �
 
 ```sh
 python build_index.py path/to/wjazzd.db site/data.json
+python build_thesession.py path/to/tunes.json site/thesession.json
 cd site && python -m http.server 8000
 ```
 

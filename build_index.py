@@ -33,6 +33,6 @@ solos=[]
 for m,s in mel.items():
     i=si.get(m,{});t=tr.get(i.get('trackid'),{});rc=rec.get(i.get('recordid') or t.get('recordid'),{})
     solos.append({'id':m,'p':i.get('performer'),'t':i.get('title'),'i':i.get('instrument'),'st':i.get('style'),'y':find_year(i,t,rc),'s':find_start(tx.get(m)),**s})
-json.dump({'source':'Weimar Jazz Database (WJazzD), Jazzomat Research Project','built':datetime.date.today().isoformat(),'demo':False,'solos':solos},open(out,'w'),separators=(',',':'))
+json.dump({'source':'Weimar Jazz Database (WJazzD), Jazzomat Research Project','built':datetime.date.today().isoformat(),'genre':'Jazz','demo':False,'solos':solos},open(out,'w'),separators=(',',':'))
 ys=[s['y'] for s in solos if s['y']]
 print(f"{len(solos)} solos, {sum(len(s['pi']) for s in solos)} notes, years {min(ys) if ys else '?'}-{max(ys) if ys else '?'}, {len(solos)-len(ys)} without year -> {out}")

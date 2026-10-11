@@ -2,4 +2,6 @@ wjazzd.db
 dl.bin
 dl/
 site/data.json
+site/thesession.json
+tunes.json
 __pycache__/
