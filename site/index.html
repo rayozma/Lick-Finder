@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lick Finder</title>
-<meta name="description" content="Search transcribed jazz solos and folk tunes for a melody. See who played it, where in the track, and when.">
+<meta name="description" content="Search transcribed jazz solos and folk songs for a melody. See who played it, where in the track, and when.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -185,7 +185,7 @@ $('go').onclick=run
 $('mode').onchange=$('genre').onchange=()=>{if(!$('results').hidden)run()}
 $('theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark';try{localStorage.setItem('theme',r.dataset.theme)}catch(e){}}
 try{const t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
-const FILES=['data.json','thesession.json']
+const FILES=['data.json','thesession.json','esac.json']
 const get=async f=>{try{const r=await fetch(f);return r.ok?await r.json():null}catch(e){return null}}
 async function load(){let ds=(await Promise.all(FILES.map(get))).filter(Boolean);if(!ds.length)ds=[await get('sample.json')]
 solos=ds.flatMap(d=>d.solos.map(s=>(s.g=s.g||d.genre||'Jazz',s)))

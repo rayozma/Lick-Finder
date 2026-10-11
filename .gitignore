@@ -3,5 +3,7 @@ dl.bin
 dl/
 site/data.json
 site/thesession.json
+site/esac.json
+esac.db
 tunes.json
 __pycache__/

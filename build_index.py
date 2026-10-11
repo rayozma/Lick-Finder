@@ -22,7 +22,7 @@ def find_start(d):
         if 'solostart' in k.lower() and v is not None:
             try:return round(float(v),2)
             except:pass
-si=rows('solo_info','melid');tr=rows('track_info','trackid');rec=rows('record_info','recordid');tx=rows('transcription_info','melid')
+ei=rows('esac_info','melid');si=rows('solo_info','melid');tr=rows('track_info','trackid');rec=rows('record_info','recordid');tx=rows('transcription_info','melid')
 mc=cols('melody');has_dur='duration' in mc
 q=f"select melid,onset,pitch{',duration' if has_dur else ''} from melody where pitch is not null order by melid,onset"
 mel={}
@@ -32,7 +32,10 @@ for r in db.execute(q):
 solos=[]
 for m,s in mel.items():
     i=si.get(m,{});t=tr.get(i.get('trackid'),{});rc=rec.get(i.get('recordid') or t.get('recordid'),{})
+    if m in ei:  # EsAC folk song database (same schema family as WJazzD)
+        e=ei[m];solos.append({'id':f'es{m}','p':'Traditional','t':e.get('title'),'i':None,'st':(e.get('region') or e.get('collection') or '').split(',')[-1].strip(),'y':None,'s':None,**s});continue
     solos.append({'id':m,'p':i.get('performer'),'t':i.get('title'),'i':i.get('instrument'),'st':i.get('style'),'y':find_year(i,t,rc),'s':find_start(tx.get(m)),**s})
-json.dump({'source':'Weimar Jazz Database (WJazzD), Jazzomat Research Project','built':datetime.date.today().isoformat(),'genre':'Jazz','demo':False,'solos':solos},open(out,'w'),separators=(',',':'))
+esac=bool(ei)
+json.dump({'source':'EsAC Folk Song Database, Jazzomat Research Project' if esac else 'Weimar Jazz Database (WJazzD), Jazzomat Research Project','built':datetime.date.today().isoformat(),'genre':'European folk' if esac else 'Jazz','demo':False,'solos':solos},open(out,'w'),separators=(',',':'))
 ys=[s['y'] for s in solos if s['y']]
 print(f"{len(solos)} solos, {sum(len(s['pi']) for s in solos)} notes, years {min(ys) if ys else '?'}-{max(ys) if ys else '?'}, {len(solos)-len(ys)} without year -> {out}")

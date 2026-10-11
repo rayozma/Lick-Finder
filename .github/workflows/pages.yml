@@ -6,6 +6,7 @@ permissions: {contents: read, pages: write, id-token: write}
 concurrency: {group: pages, cancel-in-progress: true}
 env:
   WJAZZD_URL: ${{ vars.WJAZZD_URL || 'https://jazzomat.hfm-weimar.de/download/downloads/wjazzd.db' }}
+  ESAC_URL: ${{ vars.ESAC_URL || 'https://jazzomat.hfm-weimar.de/download/downloads/esac.db' }}
   THESESSION_URL: ${{ vars.THESESSION_URL || 'https://raw.githubusercontent.com/adactio/TheSession-data/main/json/tunes.json' }}
 jobs:
   build:
@@ -21,6 +22,9 @@ jobs:
       - name: Build the search index
         run: |
           if [ -s wjazzd.db ]; then python build_index.py wjazzd.db site/data.json; else echo "::warning::No database. Deploying demo data only."; fi
+      - name: Build the folk song index (EsAC)
+        run: |
+          if curl -fL --retry 3 -o esac.db "$ESAC_URL"; then python build_index.py esac.db site/esac.json; else echo "::warning::EsAC download failed. Deploying without it."; fi
       - name: Build the folk tune index (The Session)
         run: |
           if curl -fL --retry 3 -o tunes.json "$THESESSION_URL"; then python build_thesession.py tunes.json site/thesession.json; else echo "::warning::The Session download failed. Deploying without folk tunes."; fi

@@ -30,6 +30,10 @@ If the download URL changes, set a repository variable `WJAZZD_URL` (Settings â†
 
 The app also searches about 23,000 Irish traditional tunes from [The Session](https://thesession.org/) ([data dump](https://github.com/adactio/TheSession-data)). The workflow downloads `tunes.json` and `build_thesession.py` converts the ABC notation to `site/thesession.json`. It uses the first setting of each tune and does not expand repeats. These tunes have no recording year, so they do not count for "earliest". Use the genre menu to search one genre. To change the download URL, set the variable `THESESSION_URL`.
 
+### European folk songs
+
+The app also searches the [EsAC Folk Song Database](https://jazzomat.hfm-weimar.de/download/download.html) (about 7,300 songs, mostly German and other European folk songs). It uses the same database format as WJazzD, so `build_index.py` converts it to `site/esac.json`. These songs have no year. To change the download URL, set the variable `ESAC_URL`.
+
 To add another source, write a script that outputs the same JSON format (`{source, genre, solos:[{id,p,t,i,st,y,s,on,pi,du}]}`) and add the file name to `FILES` in `site/index.html`.
 
 ## Limits
@@ -43,6 +47,7 @@ To add another source, write a script that outputs the same JSON format (`{sourc
 ```sh
 python build_index.py path/to/wjazzd.db site/data.json
 python build_thesession.py path/to/tunes.json site/thesession.json
+python build_index.py path/to/esac.db site/esac.json
 cd site && python -m http.server 8000
 ```
 
