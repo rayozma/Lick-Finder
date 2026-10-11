@@ -6,68 +6,77 @@
 <title>Lick Finder</title>
 <meta name="description" content="Search transcribed jazz solos for a melody. See who played it, where in the track, and when.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f4efe4;--paper:#fbf8f1;--ink:#1d1a16;--muted:#6b6358;--line:#d9d0bf;--accent:#c4421b;--accent-ink:#fff;--soft:#efe6d4;--hit:#f6d9c9;--wk:#fffdf8;--bk:#1d1a16;--ok:#2f6b4f}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161b;--paper:#1b1e25;--ink:#ece6d8;--muted:#9a9384;--line:#2e323b;--accent:#ef7a4f;--accent-ink:#14161b;--soft:#232731;--hit:#4a2c22;--wk:#e9e3d5;--bk:#0b0c0f;--ok:#7cc4a0}}
-:root[data-theme="dark"]{--bg:#14161b;--paper:#1b1e25;--ink:#ece6d8;--muted:#9a9384;--line:#2e323b;--accent:#ef7a4f;--accent-ink:#14161b;--soft:#232731;--hit:#4a2c22;--wk:#e9e3d5;--bk:#0b0c0f;--ok:#7cc4a0}
+:root{--bg:#f6f7fb;--card:#fff;--ink:#0f1222;--muted:#646b82;--line:#e6e8f0;--soft:#f1f2f8;--accent:#5b4cf5;--accent2:#00b3d6;--accent-ink:#fff;--tint:rgba(91,76,245,.08);--ok:#0f9d6e;--wk:#fff;--bk:#1a1d2e;--shadow:0 1px 2px rgba(15,18,34,.04),0 8px 24px rgba(15,18,34,.06)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0d14;--card:#141724;--ink:#eef0fa;--muted:#8d93ad;--line:#242840;--soft:#1b1f30;--accent:#8b7fff;--accent2:#3dd6f0;--accent-ink:#0b0d14;--tint:rgba(139,127,255,.12);--ok:#43d29e;--wk:#e9ebf5;--bk:#0b0d14;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25)}}
+:root[data-theme="dark"]{--bg:#0b0d14;--card:#141724;--ink:#eef0fa;--muted:#8d93ad;--line:#242840;--soft:#1b1f30;--accent:#8b7fff;--accent2:#3dd6f0;--accent-ink:#0b0d14;--tint:rgba(139,127,255,.12);--ok:#43d29e;--wk:#e9ebf5;--bk:#0b0d14;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25)}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
-.wrap{max-width:1040px;margin:0 auto;padding:28px 16px 64px}
-header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:22px}
-h1{font:700 clamp(34px,6vw,54px)/1 Fraunces,serif;margin:0;letter-spacing:-.02em}
-h1 span{color:var(--accent)}
-.tag{margin:6px 0 0;color:var(--muted);max-width:52ch}
-.mono{font-family:"IBM Plex Mono",monospace}
-.banner{background:var(--hit);border-left:4px solid var(--accent);padding:10px 14px;margin-bottom:18px;font-size:14px}
-.panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px}
-.label{font:500 12px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
-.chips{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;align-items:center;margin-bottom:12px}
-.chip{font:500 15px "IBM Plex Mono",monospace;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:5px 9px}
-.chip small{color:var(--muted);font-size:11px;margin-left:3px}
-.iv{color:var(--muted);font:12px "IBM Plex Mono",monospace}
-.empty{color:var(--muted);font-style:italic}
-input[type=text]{width:100%;font:15px "IBM Plex Mono",monospace;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
-input[type=text]:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.err{color:var(--accent);font-size:13px;min-height:18px;margin-top:4px}
-.kbd-scroll{overflow-x:auto;margin:12px 0 14px;padding-bottom:4px}
-.kbd{position:relative;height:118px;display:flex;user-select:none;min-width:620px}
-.wk{flex:1;background:var(--wk);border:1px solid #8c8577;border-radius:0 0 5px 5px;margin-right:-1px;cursor:pointer;position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;font:10px "IBM Plex Mono",monospace;color:#8c8577}
-.bk{position:absolute;top:0;height:72px;background:var(--bk);border-radius:0 0 4px 4px;cursor:pointer;z-index:2;border:1px solid #000}
-.wk.on{background:#f3b79e}.bk.on{background:var(--accent)}
-.wk:active{background:#eadfc9}.bk:active{background:#444}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Plus Jakarta Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{background-image:radial-gradient(900px 400px at 85% -120px,var(--tint),transparent 70%)}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 16px 64px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+h1{font:800 clamp(30px,5vw,44px)/1.05 "Plus Jakarta Sans",sans-serif;margin:0;letter-spacing:-.035em}
+h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.tag{margin:8px 0 0;color:var(--muted);max-width:56ch}
+.mono{font-family:"JetBrains Mono",monospace}
+.banner{background:var(--tint);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:18px;font-size:14px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
+.label{font:600 12px "Plus Jakarta Sans",sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;min-height:40px;align-items:center;margin-bottom:12px}
+.chip{font:600 15px "JetBrains Mono",monospace;background:var(--tint);color:var(--accent);border-radius:10px;padding:6px 10px}
+.chip small{opacity:.7;font-size:11px;margin-left:2px}
+.iv{color:var(--muted);font:12px "JetBrains Mono",monospace}
+.empty{color:var(--muted)}
+input[type=text]{width:100%;font:15px "JetBrains Mono",monospace;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft);color:var(--ink);transition:border-color .15s,box-shadow .15s}
+input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--tint)}
+select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.err{color:#e5484d;font-size:13px;min-height:18px;margin-top:6px}
+.kbd-scroll{overflow-x:auto;margin:10px 0 16px;padding:4px 2px 6px}
+.kbd{position:relative;height:120px;display:flex;gap:3px;user-select:none;min-width:620px}
+.wk{flex:1;background:var(--wk);border:1px solid var(--line);border-radius:0 0 8px 8px;cursor:pointer;position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font:10px "JetBrains Mono",monospace;color:#9aa0b8;box-shadow:inset 0 -4px 0 rgba(15,18,34,.06);transition:background .1s}
+.bk{position:absolute;top:0;height:74px;background:var(--bk);border-radius:0 0 6px 6px;cursor:pointer;z-index:2;box-shadow:0 3px 6px rgba(0,0,0,.25)}
+.wk.on{background:linear-gradient(180deg,var(--wk),#c9c3ff)}.bk.on{background:var(--accent)}
+.wk:active{background:#e3e6f2}.bk:active{background:#3a3f5c}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-button,select{font:500 14px "IBM Plex Sans",sans-serif;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:8px 13px;cursor:pointer}
-button:hover{border-color:var(--ink)}
-button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-button.ghost{background:transparent}
+button,select{font:600 14px "Plus Jakarta Sans",sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:9px 16px;cursor:pointer;transition:transform .1s,border-color .15s,background .15s}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button:active{transform:scale(.97)}
+button.primary{background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 70%,var(--accent2)));color:var(--accent-ink);border:0;padding:10px 22px;box-shadow:0 6px 16px var(--tint)}
+button.primary:hover{color:var(--accent-ink);filter:brightness(1.08)}
+button.ghost{background:var(--card)}
+select{padding-right:12px}
 .spacer{flex:1}
-.stats{color:var(--muted);font-size:13px;margin-top:10px}
+.stats{color:var(--muted);font-size:13px;margin:14px 0 0}
 .summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:18px;margin-bottom:18px}
+.summary .panel{margin-bottom:0}
 @media (max-width:760px){.summary{grid-template-columns:1fr}}
-.first h3{font:700 26px/1.15 Fraunces,serif;margin:2px 0 6px}
-.first .yr{font:700 44px/1 Fraunces,serif;color:var(--accent)}
-.note{font-size:13px;color:var(--muted);margin:8px 0 0}
-.hist{display:flex;align-items:flex-end;gap:6px;height:120px;padding-top:6px}
+.first h3{font:700 22px/1.2 "Plus Jakarta Sans",sans-serif;margin:4px 0 4px;letter-spacing:-.02em}
+.first .yr{font:800 52px/1 "Plus Jakarta Sans",sans-serif;letter-spacing:-.04em;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.note{font-size:13px;color:var(--muted);margin:10px 0 0}
+.hist{display:flex;align-items:flex-end;gap:8px;height:130px;padding-top:6px}
 .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
-.bar i{display:block;width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+.bar i{display:block;width:100%;max-width:44px;background:linear-gradient(180deg,var(--accent2),var(--accent));border-radius:8px 8px 3px 3px;min-height:3px}
 .bar i.zero{background:var(--line)}
-.bar b{font:500 11px "IBM Plex Mono",monospace;margin-bottom:3px}
-.bar span{font:11px "IBM Plex Mono",monospace;color:var(--muted);margin-top:4px;white-space:nowrap}
-.tablewrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th{font:500 12px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px;border-bottom:2px solid var(--ink);white-space:nowrap}
+.bar b{font:600 11px "JetBrains Mono",monospace;margin-bottom:4px}
+.bar span{font:11px "JetBrains Mono",monospace;color:var(--muted);margin-top:6px;white-space:nowrap}
+.tablewrap{overflow-x:auto;margin:0 -8px}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+th{font:600 12px "Plus Jakarta Sans",sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}
 th[data-k]{cursor:pointer}
-th[data-k]:hover{color:var(--ink)}
-td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
-tr.earliest td{background:var(--hit)}
-td.y{font:500 15px "IBM Plex Mono",monospace}
+th[data-k]:hover{color:var(--accent)}
+td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr{transition:background .1s}
+tbody tr:hover td{background:var(--soft)}
+tr.earliest td{background:var(--tint)}
+tr.earliest td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+td.y{font:600 15px "JetBrains Mono",monospace}
 td .sub{display:block;color:var(--muted);font-size:12px}
-.pill{font:11px "IBM Plex Mono",monospace;border:1px solid var(--line);border-radius:20px;padding:1px 7px;white-space:nowrap}
-.pill.exact{color:var(--ok);border-color:var(--ok)}
-.play{padding:4px 9px;font-size:13px}
-.more{margin-top:12px}
-footer{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
+.pill{font:600 11px "Plus Jakarta Sans",sans-serif;background:var(--soft);color:var(--muted);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.pill.exact{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.play{width:34px;height:34px;padding:0;font-size:12px;display:grid;place-items:center}
+.more{margin-top:14px}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
 footer a{color:inherit}
 </style>
 </head>
@@ -75,7 +84,7 @@ footer a{color:inherit}
 <div class="wrap">
 <header>
 <div><h1>Lick <span>Finder</span></h1><p class="tag">Find a melody in transcribed jazz solos. See who played it, where in the track, and when.</p></div>
-<button class="ghost" id="theme" aria-label="Toggle dark mode">◐ Theme</button>
+<button class="ghost" id="theme" aria-label="Toggle dark mode" style="width:40px;height:40px;padding:0;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
 </header>
 <div id="banner" class="banner" hidden></div>
 <section class="panel">
@@ -149,7 +158,7 @@ function renderSummary(){const solosHit=new Set(hits.map(h=>h.s.id)).size,dated=
 $('count').textContent=`${hits.length} match${hits.length===1?'':'es'} in ${solosHit} solo${solosHit===1?'':'s'} (of ${solos.length})`
 const f=$('first');if(!dated.length){f.innerHTML='<p class="label">Earliest use</p><h3>'+(hits.length?'No dated matches':'No matches')+'</h3><p class="note">'+(hits.length?'':'Try "Allow 1 changed note", or a shorter melody.')+'</p>'}
 else{const y0=Math.min(...dated.map(h=>h.y)),first=dated.filter(h=>h.y===y0),names=[...new Set(first.map(h=>h.p))]
-f.innerHTML=`<p class="label">Earliest in this dataset</p><div class="yr">${y0}</div><h3>${esc(names.slice(0,3).join(', '))}${names.length>3?' +'+(names.length-3):''}</h3><p class="mono" style="margin:0;font-size:13px">${esc(first[0].t)}</p><p class="note">This is the earliest recording in the data that contains the melody. Players likely used it before this date.${noYear?` ${noYear} match${noYear>1?'es have':' has'} no year.`:''}</p>`}
+f.innerHTML=`<p class="label">Earliest in this dataset</p><div class="yr">${y0}</div><h3>${esc(names.slice(0,3).join(', '))}${names.length>3?' +'+(names.length-3):''}</h3><p class="mono" style="margin:0;font-size:13px;color:var(--muted)">${esc(first[0].t)}</p><p class="note">This is the earliest recording in the data that contains the melody. Players likely used it before this date.${noYear?` ${noYear} match${noYear>1?'es have':' has'} no year.`:''}</p>`}
 const h=$('hist');h.innerHTML='';if(!dated.length)return
 const all=solos.filter(s=>s.y).map(s=>s.y),d0=Math.floor(Math.min(...all)/10)*10,d1=Math.floor(Math.max(...all)/10)*10,cnt={}
 dated.forEach(x=>{const d=Math.floor(x.y/10)*10;cnt[d]=(cnt[d]||0)+1});const mx=Math.max(...Object.values(cnt))
