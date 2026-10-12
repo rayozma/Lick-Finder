@@ -41,6 +41,18 @@ The app also searches melodies from the [Lakh MIDI Dataset](https://colinraffel.
 
 The download is 1.4 GB, so the workflow caches the result. It builds again only when `build_lakh.py` changes. MIDI files are made by fans, and the Million Song Dataset year is the release year of the album, which is sometimes a later compilation or simply wrong.
 
+### Chord progressions
+
+The Chords tab searches the chord progressions of about 440,000 songs from [Chordonomicon](https://huggingface.co/datasets/ailsntua/Chordonomicon) (CC BY-NC 4.0, so non-commercial use only). Type a progression as degrees (`1 5 6 4`), Roman numerals (`I V vi IV`, `ii7 V7 Imaj7`, `i bVII bVI V`), or chord names (`C G Am F`). The search compares the steps between chord roots, so a progression matches in any key. The matching menu sets how strict the chord types are:
+
+- **Major/minor must match** (default): `vi` matches Am and Am7, but not A. Power chords (`E5`) and sus chords match both major and minor, because punk and rock often use them in place of full chords.
+- **Exact chord types**: Am7 does not match Am.
+- **Roots only**: chord types are ignored.
+
+There is one row per song, with the number of times the progression occurs and the section where it first occurs. Repeated chords are merged, so `C C G` is the same as `C G`. Titles and artists come from Spotify for the rows on screen, and the Spotify button plays the song inside the page. The year is the album release date on Spotify, which is sometimes a later reissue.
+
+`build_chords.py` converts the 260 MB CSV to `site/chords.bin.gz` (10 MB) and `site/chords/*.json` (Spotify IDs, loaded only for the rows on screen). The page loads the chord data when you open the Chords tab. The workflow caches the build, and builds again only when `build_chords.py` changes. To change the download URL, set the variable `CHORDONOMICON_URL`.
+
 ### YouTube previews
 
 Jazz solos have a YouTube button that plays the match inside the page, from 2 seconds before to 2 seconds after. Use −5 s / +5 s when an upload's timing is off. Other rows have a button that opens a YouTube search in a new tab.
@@ -69,6 +81,7 @@ python build_index.py path/to/wjazzd.db site/data.json
 python build_thesession.py path/to/tunes.json site/thesession.json
 python build_index.py path/to/esac.db site/esac.json
 python build_lakh.py path/to/lmd-folder site/lakh.json
+python build_chords.py path/to/chordonomicon_v2.csv site/chords.json
 cd site && python -m http.server 8000
 ```
 

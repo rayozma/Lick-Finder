@@ -87,6 +87,14 @@ tr.player:hover td{background:var(--soft)}
 .player button{padding:6px 12px;font-size:13px}
 .player a{color:var(--accent)}
 .more{margin-top:14px}
+.tabs{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:14px;box-shadow:var(--shadow)}
+.tabs button{border:0;padding:7px 18px;background:transparent}
+.tabs button.on{background:var(--accent);color:var(--accent-ink)}
+.presets{margin:4px 0 14px}
+.presets button{padding:6px 12px;font:600 13px "JetBrains Mono",monospace}
+.player iframe.sp{aspect-ratio:auto;height:152px;background:transparent}
+button.sp:hover{border-color:#1db954;color:#1db954}
+td .ch{font:13px "JetBrains Mono",monospace;white-space:nowrap}
 footer{margin-top:40px;color:var(--muted);font-size:13px}
 footer a{color:inherit}
 </style>
@@ -94,11 +102,28 @@ footer a{color:inherit}
 <body>
 <div class="wrap">
 <header>
-<div><h1>Lick <span>Finder</span></h1><p class="tag">Find a melody in jazz solos, folk tunes, and pop songs. See who played it, where in the track, and when.</p></div>
+<div><h1>Lick <span>Finder</span></h1><p class="tag">Find a melody or a chord progression in jazz solos, folk tunes, and pop songs. See who played it, where in the track, and when.</p></div>
 <button class="ghost" id="theme" aria-label="Toggle dark mode" style="width:40px;height:40px;padding:0;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
 </header>
 <div id="banner" class="banner" hidden></div>
-<section class="panel">
+<div class="tabs" role="tablist"><button data-tab="m" class="on" role="tab">Melody</button><button data-tab="c" role="tab">Chords</button></div>
+<section class="panel" id="cpanel" hidden>
+<p class="label">Your chord progression</p>
+<div class="chips" id="cchips"></div>
+<input type="text" id="ctxt" spellcheck="false" autocomplete="off" aria-label="Chords" placeholder="Chords like 1 5 6 4, I V vi IV, or C G Am F">
+<div class="err" id="cerr"></div>
+<div class="row presets" id="presets"></div>
+<div class="row">
+<button id="cplay">▶ Play</button>
+<button id="cclear">Clear</button>
+<span class="spacer"></span>
+<select id="cgenre" aria-label="Genre"><option value="-1">All genres</option></select>
+<select id="cstrict" aria-label="Chord matching"><option value="f">Major/minor must match</option><option value="e">Exact chord types</option><option value="r">Roots only</option></select>
+<button class="primary" id="cgo">Search</button>
+</div>
+<p class="stats" id="cstats">Chord data loads when you open this tab (about 10 MB).</p>
+</section>
+<section class="panel" id="mpanel">
 <p class="label">Your melody</p>
 <div class="chips" id="chips"></div>
 <input type="text" id="txt" spellcheck="false" autocomplete="off" aria-label="Notes" placeholder="Notes like D4 E4 F4, lengths in beats like D4:.5 E4:1, or play the keys in rhythm">
@@ -130,8 +155,22 @@ footer a{color:inherit}
 <button class="more" id="more" hidden>Show more</button>
 </div>
 </section>
+<section id="cresults" hidden>
+<div class="summary">
+<div class="panel first" id="cfirst"></div>
+<div class="panel"><p class="label">Songs by decade of release</p><div class="hist" id="chist"></div></div>
+</div>
+<div class="panel">
+<p class="label" id="ccount"></p>
+<div class="tablewrap"><table><thead><tr>
+<th data-c="y">Year ↕</th><th>Artist</th><th>Title</th><th data-c="g">Genre ↕</th><th>Chords</th><th data-c="w">Where ↕</th><th data-c="cnt">Times ↕</th><th></th>
+</tr></thead><tbody id="ctbody"></tbody></table></div>
+<button class="more" id="cmore" hidden>Show more</button>
+</div>
+</section>
 <footer>
 <p>Matching uses note intervals, so a melody matches in any key. Rhythm matching compares the time between note starts, so tempo does not matter, and close rhythms (for example swung eighths) still count. "Earliest" means earliest in this dataset, not the first use ever.</p>
+<p>Chord search compares the steps between chord roots, so a progression matches in any key. Power chords and sus chords match both major and minor. The year is the release date on Spotify, which is sometimes a later reissue.</p>
 <p id="credit"></p>
 </footer>
 </div>
@@ -191,16 +230,16 @@ const f=$('first');if(!dated.length){f.innerHTML='<p class="label">Earliest use<
 else{const y0=Math.min(...dated.map(h=>h.y)),first=dated.filter(h=>h.y===y0),names=[...new Set(first.map(h=>h.p))]
 f.innerHTML=`<p class="label">Earliest in this dataset</p><div class="yr">${y0}</div><h3>${esc(names.slice(0,3).join(', '))}${names.length>3?' +'+(names.length-3):''}</h3><p class="mono" style="margin:0;font-size:13px;color:var(--muted)">${esc(first[0].t)}</p><p class="note">This is the earliest recording in the data that contains the melody. Players likely used it before this date.${noYear?` ${noYear} match${noYear>1?'es have':' has'} no year.`:''}</p>`}
 const h=$('hist');h.innerHTML='';if(!dated.length)return
-const all=solos.filter(s=>s.y).map(s=>s.y),d0=Math.floor(Math.min(...all)/10)*10,d1=Math.floor(Math.max(...all)/10)*10,cnt={}
-dated.forEach(x=>{const d=Math.floor(x.y/10)*10;cnt[d]=(cnt[d]||0)+1});const mx=Math.max(...Object.values(cnt))
-for(let d=d0;d<=d1;d+=10){const c=cnt[d]||0,b=document.createElement('div');b.className='bar';b.innerHTML=`<b>${c||''}</b><i class="${c?'':'zero'}" style="height:${c?Math.max(4,c/mx*85):2}%"></i><span>${String(d).slice(2)}s</span>`;b.title=`${d}s: ${c} match${c===1?'':'es'}`;h.appendChild(b)}}
+const all=solos.filter(s=>s.y).map(s=>s.y);drawHist(h,dated.map(x=>x.y),Math.floor(Math.min(...all)/10)*10,Math.floor(Math.max(...all)/10)*10,'match')}
+function drawHist(h,ys,d0,d1,word){const cnt={};ys.forEach(y=>{const d=Math.floor(y/10)*10;cnt[d]=(cnt[d]||0)+1});const mx=Math.max(...Object.values(cnt))
+for(let d=d0;d<=d1;d+=10){const c=cnt[d]||0,b=document.createElement('div');b.className='bar';b.innerHTML=`<b>${c?c.toLocaleString():''}</b><i class="${c?'':'zero'}" style="height:${c?Math.max(4,c/mx*85):2}%"></i><span>${String(d).slice(2)}s</span>`;b.title=`${d}s: ${c} ${word}${c===1?'':word==='match'?'es':'s'}`;h.appendChild(b)}}
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 function renderTable(){hits.sort(cmp);const tb=$('tbody'),y0=Math.min(...hits.filter(h=>h.y!=null).map(h=>h.y));tb.innerHTML=''
 hits.slice(0,shown).forEach((h,ix)=>{const tr=document.createElement('tr');if(h.y===y0)tr.className='earliest'
 const where=h.s.s!=null?`${fmt(h.at)} – ${fmt(h.s.s+h.end)}<span class="sub">in track</span>`:`${fmt(h.rel)} – ${fmt(h.end)}<span class="sub">from start</span>`
 tr.innerHTML=`<td class="y">${h.y??'—'}</td><td>${esc(h.p)}<span class="sub">${esc(h.s.st||'')}</span></td><td>${esc(h.t)}</td><td>${esc(h.g)}</td><td>${esc(h.iN)}</td><td class="mono">${where}</td><td><span class="pill ${h.mm?'':'exact'}">${h.mm?'1 note changed':'exact'}</span>${h.rs!=null?`<span class="sub">rhythm ${Math.round(h.rs*100)}%</span>`:''}<span class="sub">starts on ${nm(h.s.pi[h.i])}</span></td><td><div class="acts"><button class="play" data-ix="${ix}" aria-label="Play match" title="Play the notes">▶</button>${ytBtn(h,ix)}</div></td>`;tb.appendChild(tr)})
 const more=$('more');more.hidden=hits.length<=shown;more.textContent=`Show more (${hits.length-shown} left)`
-document.querySelectorAll('th[data-k]').forEach(th=>{const k=th.dataset.k;th.textContent=th.textContent.replace(/ [↕↑↓]$/,'')+(k===sortK?(sortD>0?' ↑':' ↓'):' ↕')})}
+document.querySelectorAll('#results th[data-k]').forEach(th=>{const k=th.dataset.k;th.textContent=th.textContent.replace(/ [↕↑↓]$/,'')+(k===sortK?(sortD>0?' ↑':' ↓'):' ↕')})}
 // YouTube: jazz solos have a video found by build_youtube.py and play inline at the match. Other rows link to a search.
 const YT_ICON='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1c.4-1.6.5-4.8.5-4.8s0-3.2-.5-4.8zM9.7 15.1V8.9l5.8 3.1z"/></svg>'
 let ytShift={}
@@ -217,7 +256,7 @@ row.addEventListener('click',e=>{const b=e.target.closest('[data-sh]');if(b){ytS
 $('tbody').addEventListener('click',e=>{const y=e.target.closest('[data-yt]');if(y){openPlayer(y.closest('tr'),hits[+y.dataset.yt]);return}
 const b=e.target.closest('.play');if(!b)return;const h=hits[+b.dataset.ix],s=h.s,a=Math.max(0,h.i-3),z=Math.min(s.pi.length,h.i+h.n+3),t0=s.on[a]
 tone(Array.from({length:z-a},(_,k)=>({p:s.pi[a+k],t:s.on[a+k]-t0,d:s.du[a+k]})))})
-document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;sortD=k===sortK?-sortD:1;sortK=k;renderTable()}))
+document.querySelectorAll('#results th[data-k]').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;sortD=k===sortK?-sortD:1;sortK=k;renderTable()}))
 $('more').onclick=()=>{shown+=100;renderTable()}
 $('txt').addEventListener('input',e=>{try{const r=parse(e.target.value);setQ(r.p,r.d,true)}catch(x){$('err').textContent=x.message}})
 $('txt').addEventListener('keydown',e=>{if(e.key==='Enter')run()})
@@ -247,6 +286,92 @@ const n=solos.reduce((a,s)=>a+s.pi.length,0),ys=solos.map(s=>s.y).filter(Boolean
 $('stats').textContent=`${solos.length.toLocaleString()} pieces · ${n.toLocaleString()} notes`+(ys.length?` · dated ${Math.min(...ys)}–${Math.max(...ys)}`:'')
 $('credit').textContent='Data: '+ds.map(d=>d.source+(d.built?' (built '+d.built+')':'')).join(' · ')
 if(ds.some(d=>d.demo)){$('banner').hidden=false;$('banner').innerHTML='<b>Demo data.</b> These solos are synthetic, not real recordings. The real site loads the Weimar Jazz Database when it is deployed.'}}
+// ---- Chord progressions (Chordonomicon, see build_chords.py) ----
+// A chord is {pc: root pitch class, q: quality index}. QUALS must match build_chords.py.
+// FAM groups qualities for "Major/minor must match": 0 major, 1 minor, 2 diminished, 3 either (power and sus chords).
+const QUALS=['','m','7','m7','maj7','5','sus4','sus2','dim','dim7','aug','m7♭5'],FAM=[0,1,0,1,0,3,3,3,2,2,0,2]
+const VOICE=[[0,4,7],[0,3,7],[0,4,7,10],[0,3,7,10],[0,4,7,11],[0,7,12],[0,5,7],[0,2,7],[0,3,6],[0,3,6,9],[0,4,8],[0,3,6,10]]
+const RN=['I','♭II','II','♭III','III','IV','♯IV','V','♭VI','VI','♭VII','VII'],RSUF=['','','7','7','maj7','5','sus4','sus2','°','°7','+','ø7']
+const SUF={'':0,maj:0,M:0,'6':0,add9:0,m:1,min:1,'-':1,m6:1,'7':2,'9':2,'11':2,'13':2,m7:3,min7:3,'-7':3,m9:3,maj7:4,M7:4,'Δ':4,'Δ7':4,maj9:4,'5':5,sus:6,sus4:6,'7sus4':6,sus2:7,dim:8,'°':8,o:8,dim7:9,'°7':9,o7:9,aug:10,'+':10,m7b5:11,'m7♭5':11,'ø':11,'ø7':11}
+const ACC=a=>a==='#'||a==='♯'?1:a==='b'||a==='♭'?-1:0,MAJ=[0,2,4,5,7,9,11],DIAT=[0,1,1,0,0,1,8]
+const PRESETS=['I V vi IV','vi IV I V','I vi IV V','I IV V','ii V I','i ♭VII ♭VI V']
+const roman=c=>(FAM[c.q]===1||FAM[c.q]===2?RN[c.pc].toLowerCase():RN[c.pc])+RSUF[c.q]
+const cname=(pc,q)=>NAMES[pc]+QUALS[q]
+let cq=[],C=null,chits=[],csortK='y',csortD=1,cshown=50
+function cparse(str){const out=[]
+for(let tk of str.trim().split(/[\s,|–—]+/).filter(Boolean).flatMap(t=>/^[A-G]/.test(t)?[t]:t.split('-').filter(Boolean))){let m,c
+if(m=tk.match(/^([b#♭♯]?)([1-7])(.*)$/)){const d=+m[2]-1;c={pc:(MAJ[d]+ACC(m[1])+12)%12,q:m[3]?SUF[m[3]]:DIAT[d]};c.label=roman(c)}
+else if(m=tk.match(/^([b#♭♯]?)(VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)(.*)$/)){const up=m[2]===m[2].toUpperCase(),s=m[3]
+c={pc:({I:0,II:2,III:4,IV:5,V:7,VI:9,VII:11}[m[2].toUpperCase()]+ACC(m[1])+12)%12,q:s===''?(up?0:1):s==='7'?(up?2:3):SUF[s]};c.label=roman(c)}
+else if(m=tk.match(/^([A-G])([#b♯♭]?)(.*)$/)){c={pc:({C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]]+ACC(m[2])+12)%12,q:SUF[m[3]]};c.label=cname(c.pc,c.q)}
+if(!c||c.q===undefined)throw new Error('Cannot read "'+tk+'". Use degrees (1 5 6 4), Roman numerals (I V vi IV), or chord names (C G Am F).')
+if(!out.length||out[out.length-1].pc!==c.pc||out[out.length-1].q!==c.q)out.push(c)}return out}  // the data merges repeated chords too
+function setC(a,fromText){cq=a;if(!fromText)$('ctxt').value=a.map(c=>c.label).join(' ');$('cerr').textContent=''
+$('cchips').innerHTML=a.length?a.map(c=>`<span class="chip">${esc(c.label)}</span>`).join(''):'<span class="empty">No chords yet</span>'}
+function playC(){const ns=[];cq.forEach((c,i)=>VOICE[c.q].forEach(v=>ns.push({p:48+c.pc+v,t:i*.6,d:.5})));if(ns.length)tone(ns)}
+// Data file layout is described in build_chords.py. Section markers are moved to a parallel array so the search sees only chords.
+async function loadChords(){if(C)return C;$('cstats').textContent='Loading chord data (about 10 MB)…'
+try{const d=await (await fetch('chords.json')).json(),r=await fetch(d.bin);if(!r.ok)throw 0;let b=new Uint8Array(await r.arrayBuffer())
+if(b[0]===0x1f&&b[1]===0x8b)b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer())
+const dv=new DataView(b.buffer,b.byteOffset,b.length),N=dv.getUint32(0,true),at=4+6*N,raw=b.subarray(at)
+let M=0;for(const x of raw)if(x<200)M++
+const root=new Uint8Array(M),qual=new Uint8Array(M),fam=new Uint8Array(M),sec=new Uint8Array(M),off=new Uint32Array(N+1),style=new Uint16Array(N)
+let p=0,j=0;for(let k=0;k<N;k++){const n=dv.getUint16(4+2*k,true);style[k]=dv.getUint16(4+4*N+2*k,true);off[k]=j;let s=255
+for(let e=p+n;p<e;p++){const x=raw[p];if(x>=200){s=x-200;continue}root[j]=x%12;qual[j]=x/12|0;fam[j]=FAM[qual[j]];sec[j]=s;j++}}off[N]=j
+C={...d,N,off,root,qual,fam,sec,style,year:b.subarray(4+2*N,4+3*N),genre:b.subarray(4+3*N,4+4*N)}
+const cnt={};for(const g of C.genre)cnt[g]=(cnt[g]||0)+1
+$('cgenre').innerHTML='<option value="-1">All genres</option>'+C.genres.map((g,i)=>[g,i]).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,i])=>`<option value="${i}">${esc(g)} (${(cnt[i]||0).toLocaleString()})</option>`).join('')
+$('cstats').textContent=`${N.toLocaleString()} songs · ${M.toLocaleString()} chords`;$('credit').textContent+=' · '+d.source+' (built '+d.built+')';return C}
+catch(e){$('cstats').textContent='Chord data is not available yet.';return null}}
+function csearch(Q,strict,gen){const n=Q.length,qi=Q.map(c=>(c.pc-Q[0].pc+12)%12),qq=Q.map(c=>c.q),qf=Q.map(c=>FAM[c.q]),{root,qual,fam,off}=C,res=[]
+for(let k=0;k<C.N;k++){if(gen>=0&&C.genre[k]!==gen)continue;const e=off[k+1];let cnt=0,first=-1
+for(let i=off[k];i+n<=e;i++){const r0=root[i];let j=1
+if(strict==='r'||(strict==='e'?qual[i]===qq[0]:fam[i]===qf[0]||fam[i]===3||qf[0]===3))for(;j<n;j++){const x=i+j
+if((root[x]-r0+12)%12!==qi[j])break;if(strict==='e'?qual[x]!==qq[j]:strict==='f'&&fam[x]!==qf[j]&&fam[x]!==3&&qf[j]!==3)break}else j=0
+if(j===n){cnt++;if(first<0)first=i;i+=n-1}}
+if(cnt)res.push({k,i:first,n,cnt,y:C.year[k]?1900+C.year[k]:null,g:C.genres[C.genre[k]],st:C.styles[C.style[k]],w:C.sec[first]})}return res}
+async function crun(){if(cq.length<3){$('cerr').textContent='Enter at least 3 chords.';return}if(!await loadChords())return
+$('cerr').textContent='';$('cstats').textContent='Searching…';await new Promise(r=>setTimeout(r,20))
+chits=csearch(cq,$('cstrict').value,+$('cgenre').value);cshown=50;$('cstats').textContent=`${C.N.toLocaleString()} songs searched`
+$('cresults').hidden=false;crenderSummary();crenderTable()}
+const songSpan=(k,f,ph)=>`<span data-song="${k}" data-f="${f}">${ph}</span>`
+function crenderSummary(){const dated=chits.filter(h=>h.y&&h.y>=1920),tot=chits.reduce((a,h)=>a+h.cnt,0)
+$('ccount').textContent=`${chits.length.toLocaleString()} song${chits.length===1?'':'s'} · ${tot.toLocaleString()} time${tot===1?'':'s'} in all`
+const f=$('cfirst');if(!dated.length)f.innerHTML='<p class="label">Earliest use</p><h3>'+(chits.length?'No dated matches':'No matches')+'</h3><p class="note">'+(chits.length?'':'Try "Roots only", or fewer chords.')+'</p>'
+else{const y0=Math.min(...dated.map(h=>h.y)),first=dated.filter(h=>h.y===y0).slice(0,3)
+f.innerHTML=`<p class="label">Earliest in this dataset</p><div class="yr">${y0}</div><h3>${first.map(h=>songSpan(h.k,'a','…')).join(', ')}</h3><p class="mono" style="margin:0;font-size:13px;color:var(--muted)">${first.map(h=>songSpan(h.k,'t','…')).join(' · ')}</p><p class="note">The earliest release in the data with this progression. The year comes from Spotify and is sometimes a reissue, so check it.</p>`;fillNames(f)}
+const h=$('chist');h.innerHTML='';if(!dated.length)return;const ys=dated.map(x=>x.y);drawHist(h,ys,Math.floor(Math.min(...ys)/10)*10,Math.floor(Math.max(...ys)/10)*10,'song')}
+function crenderTable(){const k=csortK;chits.sort((a,b)=>{let x=a[k],y=b[k];if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return csortD*(typeof x==='string'?x.localeCompare(y):x-y)||(a.y??9999)-(b.y??9999)})
+const tb=$('ctbody');tb.innerHTML=''
+chits.slice(0,cshown).forEach((h,ix)=>{const tr=document.createElement('tr'),ch=Array.from({length:h.n},(_,j)=>cname(C.root[h.i+j],C.qual[h.i+j])).join(' ')
+tr.innerHTML=`<td class="y">${h.y??'—'}</td><td>${songSpan(h.k,'a','…')}</td><td>${songSpan(h.k,'t','…')}</td><td>${esc(h.g)}<span class="sub">${esc(h.st)}</span></td><td><span class="ch">${esc(ch)}</span></td><td>${h.w<255?esc(C.sections[h.w]):'—'}</td><td class="mono">×${h.cnt}</td><td><div class="acts"><button class="play" data-cp="${ix}" aria-label="Play chords" title="Play the chords">▶</button><button class="play sp" data-sp="${ix}" aria-label="Listen on Spotify" title="Listen on Spotify">${SP_ICON}</button></div></td>`;tb.appendChild(tr)})
+const more=$('cmore');more.hidden=chits.length<=cshown;more.textContent=`Show more (${(chits.length-cshown).toLocaleString()} left)`
+document.querySelectorAll('#cresults th[data-c]').forEach(th=>{const c=th.dataset.c;th.textContent=th.textContent.replace(/ [↕↑↓]$/,'')+(c===csortK?(csortD>0?' ↑':' ↓'):' ↕')});fillNames(tb)}
+// Titles and artists come from Spotify's public oEmbed endpoint, a few requests at a time, only for the rows on screen.
+const SP_ICON='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22zm5 15.9a.7.7 0 0 1-.9.2c-2.6-1.6-5.8-1.9-9.6-1a.7.7 0 1 1-.3-1.3c4.2-1 7.7-.6 10.6 1.2.3.2.4.6.2.9zm1.3-3a.9.9 0 0 1-1.2.3c-2.9-1.8-7.4-2.3-10.9-1.3a.9.9 0 0 1-.5-1.7c4-1.2 9-.6 12.3 1.5.4.2.5.8.3 1.2zm.1-3.1C14.9 8.7 9 8.5 5.6 9.5a1 1 0 1 1-.6-2c3.9-1.2 10.4-1 14.4 1.4a1 1 0 0 1-1 1.8z"/></svg>'
+const meta={},names={};let active=0;const waiting=[]
+const limit=f=>new Promise(res=>{const go=()=>{active++;f().then(res,()=>res('?')).finally(()=>{active--;if(waiting.length)waiting.shift()()})};active<6?go():waiting.push(go)})
+const ids=k=>(meta[k/C.chunk|0]??=fetch(`chords/${k/C.chunk|0}.json`).then(r=>r.json())).then(a=>a[k%C.chunk])
+const oembed=(type,id)=>names[type+id]??=limit(()=>fetch(`https://open.spotify.com/oembed?url=https://open.spotify.com/${type}/${id}`).then(r=>r.ok?r.json():null).then(d=>d?.title||'?'))
+function fillNames(el){el.querySelectorAll('[data-song]').forEach(s=>ids(+s.dataset.song).then(([t,a])=>s.dataset.f==='a'?oembed('artist',a):oembed('track',t)).then(x=>s.textContent=x).catch(()=>s.textContent='?'))}
+$('ctbody').addEventListener('click',async e=>{const b=e.target.closest('[data-cp],[data-sp]');if(!b)return;const tr=b.closest('tr')
+if(b.dataset.cp){const h=chits[+b.dataset.cp],ns=[];for(let j=0;j<h.n;j++)VOICE[C.qual[h.i+j]].forEach(v=>ns.push({p:48+C.root[h.i+j]+v,t:j*.6,d:.5}));tone(ns);return}
+const old=document.querySelector('tr.player'),same=old&&old.previousElementSibling===tr;if(old)old.remove();if(same)return
+const[t]=await ids(chits[+b.dataset.sp].k),row=document.createElement('tr');row.className='player'
+row.innerHTML=`<td colspan="8"><iframe class="sp" src="https://open.spotify.com/embed/track/${t}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" title="Spotify player"></iframe></td>`;tr.after(row)})
+document.querySelectorAll('#cresults th[data-c]').forEach(th=>{th.style.cursor='pointer';th.addEventListener('click',()=>{const c=th.dataset.c;csortD=c===csortK?-csortD:c==='cnt'?-1:1;csortK=c;crenderTable()})})
+$('cmore').onclick=()=>{cshown+=50;crenderTable()}
+$('ctxt').addEventListener('input',e=>{try{setC(cparse(e.target.value),true)}catch(x){$('cerr').textContent=x.message}})
+$('ctxt').addEventListener('keydown',e=>{if(e.key==='Enter')crun()})
+$('presets').innerHTML=PRESETS.map(p=>`<button data-pre="${p}">${p}</button>`).join('')
+$('presets').onclick=e=>{const b=e.target.closest('[data-pre]');if(b){setC(cparse(b.dataset.pre));playC();crun()}}
+$('cplay').onclick=playC;$('cclear').onclick=()=>{setC([]);$('cresults').hidden=true};$('cgo').onclick=crun
+$('cstrict').onchange=$('cgenre').onchange=()=>{if(!$('cresults').hidden)crun()}
+function tab(t){document.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('on',b.dataset.tab===t);b.setAttribute('aria-selected',b.dataset.tab===t)})
+$('mpanel').hidden=t!=='m';$('cpanel').hidden=t!=='c';$('results').hidden=t!=='m'||!hits.length;$('cresults').hidden=t!=='c'||!chits.length
+try{localStorage.setItem('tab',t)}catch(e){};if(t==='c')loadChords()}
+document.querySelector('.tabs').onclick=e=>{const b=e.target.closest('[data-tab]');if(b)tab(b.dataset.tab)}
+setC(cparse('I V vi IV'));try{if(localStorage.getItem('tab')==='c')tab('c')}catch(e){}
 buildKbd();renderQ();load()
 </script>
 </body>

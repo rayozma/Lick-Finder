@@ -10,3 +10,6 @@ lmd/
 esac.db
 tunes.json
 __pycache__/
+site/chords.json
+site/chords.bin.gz
+site/chords/

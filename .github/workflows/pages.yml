@@ -10,6 +10,7 @@ env:
   LMD_URL: ${{ vars.LMD_URL || 'http://hog.ee.columbia.edu/craffel/lmd' }}
   MSD_URL: ${{ vars.MSD_URL || 'http://millionsongdataset.com/sites/default/files/AdditionalFiles' }}
   TAGTRAUM_URL: ${{ vars.TAGTRAUM_URL || 'https://www.tagtraum.com/genres/msd_tagtraum_cd2c.cls.zip' }}
+  CHORDONOMICON_URL: ${{ vars.CHORDONOMICON_URL || 'https://huggingface.co/datasets/ailsntua/Chordonomicon/resolve/main/chordonomicon_v2.csv' }}
   THESESSION_URL: ${{ vars.THESESSION_URL || 'https://raw.githubusercontent.com/adactio/TheSession-data/main/json/tunes.json' }}
 jobs:
   build:
@@ -44,6 +45,14 @@ jobs:
           done
           unzip -o -q msd_tagtraum_cd2c.cls.zip && cd ..
           pip install -q pretty_midi && python build_lakh.py lmd site/lakh.json && rm -rf lmd
+      - name: Restore the chord index (Chordonomicon)
+        id: chords
+        uses: actions/cache@v4
+        with: {path: "site/chords*", key: "chords-${{ hashFiles('build_chords.py') }}"}
+      - name: Build the chord index (Chordonomicon)
+        if: steps.chords.outputs.cache-hit != 'true'
+        run: |
+          if curl -fL --retry 3 -o chordonomicon.csv "$CHORDONOMICON_URL"; then python build_chords.py chordonomicon.csv site/chords.json && rm chordonomicon.csv; else echo "::warning::Chordonomicon download failed. Deploying without chord search."; fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: {path: site}
