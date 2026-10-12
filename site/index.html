@@ -26,6 +26,7 @@ h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-b
 .chips{display:flex;flex-wrap:wrap;gap:6px;min-height:40px;align-items:center;margin-bottom:12px}
 .chip{font:600 15px "JetBrains Mono",monospace;background:var(--tint);color:var(--accent);border-radius:10px;padding:6px 10px}
 .chip small{opacity:.7;font-size:11px;margin-left:2px}
+.chip em{font-style:normal;font-weight:400;opacity:.75;margin-left:5px}
 .iv{color:var(--muted);font:12px "JetBrains Mono",monospace}
 .empty{color:var(--muted)}
 input[type=text]{width:100%;font:15px "JetBrains Mono",monospace;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft);color:var(--ink);transition:border-color .15s,box-shadow .15s}
@@ -90,7 +91,7 @@ footer a{color:inherit}
 <section class="panel">
 <p class="label">Your melody</p>
 <div class="chips" id="chips"></div>
-<input type="text" id="txt" spellcheck="false" autocomplete="off" aria-label="Notes" placeholder="Type notes, e.g. D4 E4 F4 G4 E4 C4 D4, or click the keys">
+<input type="text" id="txt" spellcheck="false" autocomplete="off" aria-label="Notes" placeholder="Notes like D4 E4 F4, lengths in beats like D4:.5 E4:1, or play the keys in rhythm">
 <div class="err" id="err"></div>
 <div class="kbd-scroll"><div class="kbd" id="kbd" aria-label="Piano keyboard"></div></div>
 <div class="row">
@@ -101,6 +102,7 @@ footer a{color:inherit}
 <span class="spacer"></span>
 <select id="genre" aria-label="Genre"><option value="">All genres</option></select>
 <select id="mode" aria-label="Match mode"><option value="0">Exact intervals</option><option value="1">Allow 1 changed note</option></select>
+<select id="rhy" aria-label="Rhythm"><option value="0">Melody only</option><option value=".65">Melody + similar rhythm</option><option value=".85">Melody + close rhythm</option></select>
 <button class="primary" id="go">Search</button>
 </div>
 <p class="stats" id="stats">Loading data…</p>
@@ -113,51 +115,69 @@ footer a{color:inherit}
 <div class="panel">
 <p class="label" id="count"></p>
 <div class="tablewrap"><table><thead><tr>
-<th data-k="y">Year ↕</th><th data-k="p">Performer ↕</th><th data-k="t">Title ↕</th><th data-k="g">Genre ↕</th><th data-k="i">Instr.</th><th data-k="at">Where ↕</th><th data-k="mm">Match ↕</th><th></th>
+<th data-k="y">Year ↕</th><th data-k="p">Performer ↕</th><th data-k="t">Title ↕</th><th data-k="g">Genre ↕</th><th data-k="i">Instr.</th><th data-k="at">Where ↕</th><th data-k="sc">Match ↕</th><th></th>
 </tr></thead><tbody id="tbody"></tbody></table></div>
 <button class="more" id="more" hidden>Show more</button>
 </div>
 </section>
 <footer>
-<p>Matching uses note intervals, so a melody matches in any key. Rhythm is ignored. "Earliest" means earliest in this dataset, not the first use ever.</p>
+<p>Matching uses note intervals, so a melody matches in any key. Rhythm matching compares the time between note starts, so tempo does not matter, and close rhythms (for example swung eighths) still count. "Earliest" means earliest in this dataset, not the first use ever.</p>
 <p id="credit"></p>
 </footer>
 </div>
 <script>
-const NAMES=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'],LICK=[62,64,65,67,64,60,62],LO=48,HI=84
+const NAMES=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'],LICK=[62,64,65,67,64,60,62],LICK_D=[.5,.5,.5,.5,1,.5,1],LO=48,HI=84,BEAT=.34
 const INSTR={ts:'tenor sax',as:'alto sax',ss:'soprano sax',bs:'baritone sax',tp:'trumpet',tb:'trombone',p:'piano',g:'guitar',cl:'clarinet',vib:'vibraphone',bcl:'bass clarinet',cor:'cornet',b:'bass'}
 const $=id=>document.getElementById(id)
 const nm=p=>NAMES[p%12]+(Math.floor(p/12)-1)
 const fmt=s=>{s=Math.max(0,s);const m=Math.floor(s/60),x=Math.floor(s%60);return m+':'+String(x).padStart(2,'0')}
-let solos=[],q=[],hits=[],sortK='y',sortD=1,shown=100
-function parse(str){const out=[];for(const tk of str.trim().split(/[\s,]+/).filter(Boolean)){if(/^\d+$/.test(tk)){out.push(+tk);continue}
-const m=tk.match(/^([A-Ga-g])([#♯b♭]?)(-?\d)?$/);if(!m)throw new Error('Cannot read "'+tk+'". Use names like C4, Eb4, F#3, or MIDI numbers.')
-let p={c:0,d:2,e:4,f:5,g:7,a:9,b:11}[m[1].toLowerCase()]+(m[2]==='#'||m[2]==='♯'?1:m[2]?-1:0);out.push(12*((m[3]===undefined?4:+m[3])+1)+p)}return out}
-const toText=a=>a.map(p=>nm(p).replace('♯','#').replace('♭','b')).join(' ')
-function setQ(a,fromText){q=a;if(!fromText)$('txt').value=toText(q);$('err').textContent='';renderQ()}
+let solos=[],q=[],qd=[],taps=[],hits=[],sortK='y',sortD=1,shown=100
+// q: query pitches. qd: note lengths in beats (null when unknown). A length is the time to the next note, so a rest adds to the note before it.
+// In text, a length follows a colon (D4:.5, E4:1/2, r:1 for a rest). A note without one takes the previous length.
+function parse(str){const out=[],ds=[];let last=null,any=false
+for(const tk of str.trim().split(/[\s,]+/).filter(Boolean)){const[nt,len]=tk.split(':');let d=null
+if(len!==undefined){const m=len.match(/^(\d*\.?\d+)(?:\/(\d+))?$/);d=m?m[1]/(m[2]||1):0;if(!(d>0))throw new Error('Cannot read the length in "'+tk+'". Use beats, like D4:1, D4:.5 or D4:1/2.');any=true}
+if(/^[rR]$/.test(nt)){if(d==null)throw new Error('Give rests a length, like r:1.');if(ds.length&&ds[ds.length-1]!=null)ds[ds.length-1]+=d;continue}
+if(/^\d+$/.test(nt))out.push(+nt);else{const m=nt.match(/^([A-Ga-g])([#♯b♭]?)(-?\d)?$/);if(!m)throw new Error('Cannot read "'+tk+'". Use names like C4, Eb4, F#3, or MIDI numbers.')
+out.push(12*((m[3]===undefined?4:+m[3])+1)+{c:0,d:2,e:4,f:5,g:7,a:9,b:11}[m[1].toLowerCase()]+(m[2]==='#'||m[2]==='♯'?1:m[2]?-1:0))}
+if(d==null)d=last;last=d;ds.push(d)}return{p:out,d:any?ds:ds.map(()=>null)}}
+const fb=d=>String(+d.toFixed(3)).replace(/^0\./,'.')
+const toText=(a,d)=>a.map((p,i)=>nm(p).replace('♯','#').replace('♭','b')+(d[i]!=null?':'+fb(d[i]):'')).join(' ')
+const GLYPH={.5:'♪',1:'♩',1.5:'♩.'}
+const hasRhythm=()=>q.length>1&&qd.slice(0,-1).every(d=>d!=null)
+function setQ(a,d,fromText){q=a;qd=d||a.map(()=>null);if(!fromText)$('txt').value=toText(q,qd);else taps=[];$('err').textContent='';renderQ()}
 function renderQ(){const c=$('chips');c.innerHTML='';if(!q.length){c.innerHTML='<span class="empty">No notes yet</span>'}
-q.forEach((p,i)=>{if(i){const d=p-q[i-1],s=document.createElement('span');s.className='iv';s.textContent=(d>0?'+':'')+d;c.appendChild(s)}const e=document.createElement('span');e.className='chip';e.innerHTML=nm(p).replace(/(-?\d+)$/,'<small>$1</small>');c.appendChild(e)})
+q.forEach((p,i)=>{if(i){const d=p-q[i-1],s=document.createElement('span');s.className='iv';s.textContent=(d>0?'+':'')+d;c.appendChild(s)}const e=document.createElement('span');e.className='chip';e.innerHTML=nm(p).replace(/(-?\d+)$/,'<small>$1</small>')+(qd[i]!=null?`<em title="${fb(qd[i])} beat${qd[i]===1?'':'s'}">${GLYPH[qd[i]]||fb(qd[i])}</em>`:'');c.appendChild(e)})
 document.querySelectorAll('[data-p]').forEach(k=>k.classList.toggle('on',q.includes(+k.dataset.p)))}
 function buildKbd(){const k=$('kbd'),whites=[];for(let p=LO;p<=HI;p++)if(![1,3,6,8,10].includes(p%12))whites.push(p)
 const w=100/whites.length;whites.forEach(p=>{const b=document.createElement('div');b.className='wk';b.dataset.p=p;b.setAttribute('role','button');b.setAttribute('aria-label',nm(p));if(p%12===0)b.textContent=nm(p);k.appendChild(b)})
 for(let p=LO;p<=HI;p++)if([1,3,6,8,10].includes(p%12)){const i=whites.indexOf(p-1),b=document.createElement('div');b.className='bk';b.dataset.p=p;b.setAttribute('role','button');b.setAttribute('aria-label',nm(p));b.style.left=`calc(${(i+1)*w}% - ${w*0.32}%)`;b.style.width=w*0.64+'%';k.appendChild(b)}
-k.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-p]');if(!t)return;const p=+t.dataset.p;tone([{p,t:0,d:.35}]);setQ([...q,p])})}
+k.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-p]');if(!t)return;const p=+t.dataset.p;tone([{p,t:0,d:.35}])
+// Keys played less than 2.5 s apart count as played in rhythm. The most common gap is taken as an eighth note.
+const now=performance.now()/1000;if(taps.length&&now-taps[taps.length-1]>2.5)taps=[];taps.push(now)
+const P=[...q,p],D=[...qd,null];if(taps.length>1){const g=taps.slice(1).map((t,k)=>t-taps[k]),ref=[...g].sort((a,b)=>a-b)[g.length>>1],k0=P.length-taps.length
+g.forEach((x,k)=>D[k0+k]=Math.max(.25,Math.round(x/ref*2)/4));D[P.length-1]=D[P.length-2]}setQ(P,D)})}
 let ac,voices=[]
 function tone(ns){ac=ac||new (window.AudioContext||window.webkitAudioContext)();voices.forEach(v=>{try{v.stop()}catch(e){}});voices=[];const t0=ac.currentTime+.05
 for(const n of ns){const o=ac.createOscillator(),g=ac.createGain(),s=t0+n.t,d=Math.max(.08,Math.min(n.d,1.2));o.type='triangle';o.frequency.value=440*Math.pow(2,(n.p-69)/12)
 g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(.22,s+.012);g.gain.exponentialRampToValueAtTime(.001,s+d+.08);o.connect(g).connect(ac.destination);o.start(s);o.stop(s+d+.1);voices.push(o)}}
-function search(q,tol,gen){const n=q.length,res=[]
+// Rhythm similarity, 0 to 1. Compares the time between note starts with the query lengths on a log scale, after
+// removing the tempo (the median ratio). A ratio within 1.23x counts fully; credit falls to 0 at 2.1x.
+function rscore(on,i,n){const e=[];for(let j=0;j<n-1;j++)e.push(Math.log2(Math.max(.01,on[i+j+1]-on[i+j])/qd[j]))
+const m=[...e].sort((a,b)=>a-b)[e.length>>1];let t=0;for(const x of e){const r=Math.abs(x-m);t+=r<=.3?1:Math.max(0,1-(r-.3)/.8)}return t/e.length}
+function search(q,tol,gen,rmin){const n=q.length,res=[]
 for(const s of solos){if(gen&&s.g!==gen)continue;const p=s.pi;for(let i=0;i+n<=p.length;i++){let best=-1,off=0
 for(const c of [p[i]-q[0],p[i+n-1]-q[n-1]]){let mm=0;for(let j=0;j<n&&mm<=tol;j++)if(p[i+j]-q[j]!==c)mm++;if(mm<=tol&&(best<0||mm<best)){best=mm;off=c}}
-if(best>=0){const t=s.on[i],e=s.on[i+n-1]+s.du[i+n-1];res.push({s,i,n,mm:best,off,y:s.y,p:s.p||'',t:s.t||'',g:s.g,iN:INSTR[s.i]||s.i||'',at:(s.s??0)+t,rel:t,end:e});i+=n-1}}}return res}
+if(best>=0){const rs=rmin?rscore(s.on,i,n):null;if(rmin&&rs<rmin)continue;const t=s.on[i],e=s.on[i+n-1]+s.du[i+n-1];res.push({s,i,n,mm:best,rs,sc:best+(rmin?1-rs:0),off,y:s.y,p:s.p||'',t:s.t||'',g:s.g,iN:INSTR[s.i]||s.i||'',at:(s.s??0)+t,rel:t,end:e});i+=n-1}}}return res}
 function run(){if(q.length<4){$('err').textContent='Enter at least 4 notes. Shorter melodies match almost everywhere.';return}
 const tol=+$('mode').value;if(tol&&q.length<6){$('err').textContent='"Allow 1 changed note" needs at least 6 notes.';return}
-$('err').textContent='';hits=search(q,tol,$('genre').value);shown=100;$('results').hidden=false;renderSummary();renderTable()}
+const rmin=+$('rhy').value;if(rmin&&!hasRhythm()){$('err').textContent='To match rhythm, give the notes lengths (D4:.5 E4:1 …) or play the keys in rhythm.';return}
+$('err').textContent='';hits=search(q,tol,$('genre').value,rmin);shown=100;$('results').hidden=false;renderSummary();renderTable()}
 function cmp(a,b){const k=sortK;let x=a[k],y=b[k];if(k==='y'){if(x==null&&y==null)return a.at-b.at;if(x==null)return 1;if(y==null)return -1}
 if(typeof x==='string')return sortD*x.localeCompare(y)||(a.y??9999)-(b.y??9999);return sortD*(x-y)||(a.y??9999)-(b.y??9999)}
 function renderSummary(){const solosHit=new Set(hits.map(h=>h.s.id)).size,dated=hits.filter(h=>h.y!=null),noYear=hits.length-dated.length
 $('count').textContent=`${hits.length} match${hits.length===1?'':'es'} in ${solosHit} piece${solosHit===1?'':'s'}`
-const f=$('first');if(!dated.length){f.innerHTML='<p class="label">Earliest use</p><h3>'+(hits.length?'No dated matches':'No matches')+'</h3><p class="note">'+(hits.length?'Traditional tunes have no recording year. Sort by another column to explore the matches.':'Try "Allow 1 changed note", or a shorter melody.')+'</p>'}
+const f=$('first');if(!dated.length){f.innerHTML='<p class="label">Earliest use</p><h3>'+(hits.length?'No dated matches':'No matches')+'</h3><p class="note">'+(hits.length?'Traditional tunes have no recording year. Sort by another column to explore the matches.':(+$('rhy').value?'Try a looser rhythm setting, "Allow 1 changed note", or a shorter melody.':'Try "Allow 1 changed note", or a shorter melody.'))+'</p>'}
 else{const y0=Math.min(...dated.map(h=>h.y)),first=dated.filter(h=>h.y===y0),names=[...new Set(first.map(h=>h.p))]
 f.innerHTML=`<p class="label">Earliest in this dataset</p><div class="yr">${y0}</div><h3>${esc(names.slice(0,3).join(', '))}${names.length>3?' +'+(names.length-3):''}</h3><p class="mono" style="margin:0;font-size:13px;color:var(--muted)">${esc(first[0].t)}</p><p class="note">This is the earliest recording in the data that contains the melody. Players likely used it before this date.${noYear?` ${noYear} match${noYear>1?'es have':' has'} no year.`:''}</p>`}
 const h=$('hist');h.innerHTML='';if(!dated.length)return
@@ -168,21 +188,23 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 function renderTable(){hits.sort(cmp);const tb=$('tbody'),y0=Math.min(...hits.filter(h=>h.y!=null).map(h=>h.y));tb.innerHTML=''
 hits.slice(0,shown).forEach((h,ix)=>{const tr=document.createElement('tr');if(h.y===y0)tr.className='earliest'
 const where=h.s.s!=null?`${fmt(h.at)} – ${fmt(h.s.s+h.end)}<span class="sub">in track</span>`:`${fmt(h.rel)} – ${fmt(h.end)}<span class="sub">from start</span>`
-tr.innerHTML=`<td class="y">${h.y??'—'}</td><td>${esc(h.p)}<span class="sub">${esc(h.s.st||'')}</span></td><td>${esc(h.t)}</td><td>${esc(h.g)}</td><td>${esc(h.iN)}</td><td class="mono">${where}</td><td><span class="pill ${h.mm?'':'exact'}">${h.mm?'1 note changed':'exact'}</span><span class="sub">starts on ${nm(h.s.pi[h.i])}</span></td><td><button class="play" data-ix="${ix}" aria-label="Play match">▶</button></td>`;tb.appendChild(tr)})
+tr.innerHTML=`<td class="y">${h.y??'—'}</td><td>${esc(h.p)}<span class="sub">${esc(h.s.st||'')}</span></td><td>${esc(h.t)}</td><td>${esc(h.g)}</td><td>${esc(h.iN)}</td><td class="mono">${where}</td><td><span class="pill ${h.mm?'':'exact'}">${h.mm?'1 note changed':'exact'}</span>${h.rs!=null?`<span class="sub">rhythm ${Math.round(h.rs*100)}%</span>`:''}<span class="sub">starts on ${nm(h.s.pi[h.i])}</span></td><td><button class="play" data-ix="${ix}" aria-label="Play match">▶</button></td>`;tb.appendChild(tr)})
 const more=$('more');more.hidden=hits.length<=shown;more.textContent=`Show more (${hits.length-shown} left)`
 document.querySelectorAll('th[data-k]').forEach(th=>{const k=th.dataset.k;th.textContent=th.textContent.replace(/ [↕↑↓]$/,'')+(k===sortK?(sortD>0?' ↑':' ↓'):' ↕')})}
 $('tbody').addEventListener('click',e=>{const b=e.target.closest('.play');if(!b)return;const h=hits[+b.dataset.ix],s=h.s,a=Math.max(0,h.i-3),z=Math.min(s.pi.length,h.i+h.n+3),t0=s.on[a]
 tone(Array.from({length:z-a},(_,k)=>({p:s.pi[a+k],t:s.on[a+k]-t0,d:s.du[a+k]})))})
 document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;sortD=k===sortK?-sortD:1;sortK=k;renderTable()}))
 $('more').onclick=()=>{shown+=100;renderTable()}
-$('txt').addEventListener('input',e=>{try{setQ(parse(e.target.value),true)}catch(x){$('err').textContent=x.message}})
+$('txt').addEventListener('input',e=>{try{const r=parse(e.target.value);setQ(r.p,r.d,true)}catch(x){$('err').textContent=x.message}})
 $('txt').addEventListener('keydown',e=>{if(e.key==='Enter')run()})
-$('lick').onclick=()=>{setQ(LICK.slice());tone(q.map((p,i)=>({p,t:i*.17,d:.16})));run()}
-$('playq').onclick=()=>q.length&&tone(q.map((p,i)=>({p,t:i*.22,d:.2})))
-$('undo').onclick=()=>setQ(q.slice(0,-1))
-$('clear').onclick=()=>{setQ([]);$('results').hidden=true}
+function playQ(){if(!q.length)return;if(!hasRhythm())return tone(q.map((p,i)=>({p,t:i*.22,d:.2})));let t=0
+tone(q.map((p,i)=>{const d=(qd[i]??qd[i-1])*BEAT,n={p,t,d:d*.9};t+=d;return n}))}
+$('lick').onclick=()=>{taps=[];setQ(LICK.slice(),LICK_D.slice());playQ();run()}
+$('playq').onclick=playQ
+$('undo').onclick=()=>{taps.pop();setQ(q.slice(0,-1),qd.slice(0,-1))}
+$('clear').onclick=()=>{taps=[];setQ([]);$('results').hidden=true}
 $('go').onclick=run
-$('mode').onchange=$('genre').onchange=()=>{if(!$('results').hidden)run()}
+$('mode').onchange=$('rhy').onchange=$('genre').onchange=()=>{if(!$('results').hidden)run()}
 $('theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark';try{localStorage.setItem('theme',r.dataset.theme)}catch(e){}}
 try{const t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
 const FILES=['data.json','thesession.json','esac.json','lakh.json']

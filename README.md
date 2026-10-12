@@ -13,8 +13,9 @@ You can sort the results by year. Then you can see the earliest recording in the
 1. The app converts your melody to intervals (the number of semitones between notes). Thus a melody matches in all keys.
 2. The app compares the intervals with each note position in each solo.
 3. "Allow 1 changed note" accepts a match when one note is different. Use this mode for melodies of 6 notes or more.
+4. "Melody + similar rhythm" and "Melody + close rhythm" also compare the rhythm. Give each note a length in beats after a colon (`D4:.5 E4:.5 F4:1`, `r:1` for a rest), or play the piano keys in rhythm. The app compares the time between note starts after it removes the tempo, so the same rhythm matches at any tempo. Each match gets a rhythm score. "Similar" needs 65% and accepts small differences such as swung eighths; "close" needs 85%.
 
-The search does not use rhythm. All of the search runs in the browser. The site has no server.
+All of the search runs in the browser. The site has no server.
 
 ## Data
 
@@ -68,7 +69,6 @@ Then open http://localhost:8000. If `data.json` is not there, the page uses the 
 
 ## Ideas for later
 
-- Rhythm matching (compare note duration ratios)
 - Audio input: convert a hummed or recorded melody to notes with Basic Pitch or pYIN
 - More data sources, and links to recordings through MusicBrainz
 
