@@ -41,6 +41,19 @@ The app also searches melodies from the [Lakh MIDI Dataset](https://colinraffel.
 
 The download is 1.4 GB, so the workflow caches the result. It builds again only when `build_lakh.py` changes. MIDI files are made by fans, and the Million Song Dataset year is the release year of the album, which is sometimes a later compilation or simply wrong.
 
+### YouTube previews
+
+Jazz solos have a YouTube button that plays the match inside the page, from 2 seconds before to 2 seconds after. Use −5 s / +5 s when an upload's timing is off. Other rows have a button that opens a YouTube search in a new tab.
+
+`build_youtube.py` finds the videos and writes `site/youtube.json`. It searches YouTube for "artist title" with [yt-dlp](https://github.com/yt-dlp/yt-dlp), and accepts a video only when its length is within 3% of the track length on [MusicBrainz](https://musicbrainz.org/) (WJazzD has a MusicBrainz ID for each track). This rejects most other takes and live versions. YouTube often blocks GitHub's servers, so the workflow does not run this script. Run it on your computer and commit the file:
+
+```sh
+pip install yt-dlp
+python build_youtube.py path/to/wjazzd.db site/youtube.json
+```
+
+A rerun looks up only the tracks without a video. To fix a wrong video, edit its `"v"` in `site/youtube.json`.
+
 To add another source, write a script that outputs the same JSON format (`{source, genre, solos:[{id,p,t,i,st,y,s,on,pi,du}]}`) and add the file name to `FILES` in `site/index.html`.
 
 ## Limits

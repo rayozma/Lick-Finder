@@ -76,6 +76,16 @@ td .sub{display:block;color:var(--muted);font-size:12px}
 .pill{font:600 11px "Plus Jakarta Sans",sans-serif;background:var(--soft);color:var(--muted);border-radius:999px;padding:3px 9px;white-space:nowrap}
 .pill.exact{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
 .play{width:34px;height:34px;padding:0;font-size:12px;display:grid;place-items:center}
+.acts{display:flex;gap:6px;justify-content:flex-end}
+a.yt{width:34px;height:34px;border:1px solid var(--line);border-radius:999px;display:grid;place-items:center;color:var(--muted);text-decoration:none}
+a.yt:hover,button.yt:hover{border-color:#e5484d;color:#e5484d}
+button.yt.has{color:#e5484d}
+tr.player td{background:var(--soft);padding:4px 10px 16px}
+tr.player:hover td{background:var(--soft)}
+.player iframe{display:block;width:100%;max-width:640px;aspect-ratio:16/9;border:0;border-radius:12px;background:#000}
+.player .row{margin-top:10px;font-size:13px;color:var(--muted)}
+.player button{padding:6px 12px;font-size:13px}
+.player a{color:var(--accent)}
 .more{margin-top:14px}
 footer{margin-top:40px;color:var(--muted);font-size:13px}
 footer a{color:inherit}
@@ -188,10 +198,24 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 function renderTable(){hits.sort(cmp);const tb=$('tbody'),y0=Math.min(...hits.filter(h=>h.y!=null).map(h=>h.y));tb.innerHTML=''
 hits.slice(0,shown).forEach((h,ix)=>{const tr=document.createElement('tr');if(h.y===y0)tr.className='earliest'
 const where=h.s.s!=null?`${fmt(h.at)} – ${fmt(h.s.s+h.end)}<span class="sub">in track</span>`:`${fmt(h.rel)} – ${fmt(h.end)}<span class="sub">from start</span>`
-tr.innerHTML=`<td class="y">${h.y??'—'}</td><td>${esc(h.p)}<span class="sub">${esc(h.s.st||'')}</span></td><td>${esc(h.t)}</td><td>${esc(h.g)}</td><td>${esc(h.iN)}</td><td class="mono">${where}</td><td><span class="pill ${h.mm?'':'exact'}">${h.mm?'1 note changed':'exact'}</span>${h.rs!=null?`<span class="sub">rhythm ${Math.round(h.rs*100)}%</span>`:''}<span class="sub">starts on ${nm(h.s.pi[h.i])}</span></td><td><button class="play" data-ix="${ix}" aria-label="Play match">▶</button></td>`;tb.appendChild(tr)})
+tr.innerHTML=`<td class="y">${h.y??'—'}</td><td>${esc(h.p)}<span class="sub">${esc(h.s.st||'')}</span></td><td>${esc(h.t)}</td><td>${esc(h.g)}</td><td>${esc(h.iN)}</td><td class="mono">${where}</td><td><span class="pill ${h.mm?'':'exact'}">${h.mm?'1 note changed':'exact'}</span>${h.rs!=null?`<span class="sub">rhythm ${Math.round(h.rs*100)}%</span>`:''}<span class="sub">starts on ${nm(h.s.pi[h.i])}</span></td><td><div class="acts"><button class="play" data-ix="${ix}" aria-label="Play match" title="Play the notes">▶</button>${ytBtn(h,ix)}</div></td>`;tb.appendChild(tr)})
 const more=$('more');more.hidden=hits.length<=shown;more.textContent=`Show more (${hits.length-shown} left)`
 document.querySelectorAll('th[data-k]').forEach(th=>{const k=th.dataset.k;th.textContent=th.textContent.replace(/ [↕↑↓]$/,'')+(k===sortK?(sortD>0?' ↑':' ↓'):' ↕')})}
-$('tbody').addEventListener('click',e=>{const b=e.target.closest('.play');if(!b)return;const h=hits[+b.dataset.ix],s=h.s,a=Math.max(0,h.i-3),z=Math.min(s.pi.length,h.i+h.n+3),t0=s.on[a]
+// YouTube: jazz solos have a video found by build_youtube.py and play inline at the match. Other rows link to a search.
+const YT_ICON='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1c.4-1.6.5-4.8.5-4.8s0-3.2-.5-4.8zM9.7 15.1V8.9l5.8 3.1z"/></svg>'
+let ytShift={}
+function ytBtn(h,ix){const s=h.s;if(s.yt&&s.yt.v)return `<button class="play yt has" data-yt="${ix}" aria-label="Watch on YouTube" title="Watch this moment">${YT_ICON}</button>`
+const qy=[s.p&&s.p!=='Traditional'?s.p:'',s.t,s.p==='Traditional'?s.g:''].filter(Boolean).join(' ')
+return `<a class="yt" href="https://www.youtube.com/results?search_query=${encodeURIComponent(qy)}" target="_blank" rel="noopener" aria-label="Search on YouTube" title="Search on YouTube">${YT_ICON}</a>`}
+function openPlayer(tr,h){const old=document.querySelector('tr.player'),same=old&&old.previousElementSibling===tr;if(old)old.remove();if(same)return
+const v=h.s.yt.v,a=h.s.s+h.rel,z=h.s.s+h.end,row=document.createElement('tr');row.className='player'
+const draw=()=>{const sh=ytShift[v]||0,st=Math.max(0,Math.floor(a+sh-2)),en=Math.ceil(z+sh+2)
+row.innerHTML=`<td colspan="9"><iframe src="https://www.youtube-nocookie.com/embed/${v}?start=${st}&end=${en}&autoplay=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="${esc(h.t)} on YouTube"></iframe>
+<div class="row"><button data-sh="-5">−5 s</button><button data-sh="5">+5 s</button><span>Plays ${fmt(st)}–${fmt(en)}${sh?` (shifted ${sh>0?'+':''}${sh} s)`:''}.${h.s.yt.ok?'':' This video was not checked against the track length, so the time may be off.'} Uploads can differ from the original by a few seconds.</span>
+<span class="spacer"></span><a href="https://www.youtube.com/watch?v=${v}&t=${st}s" target="_blank" rel="noopener">Open on YouTube</a></div></td>`}
+row.addEventListener('click',e=>{const b=e.target.closest('[data-sh]');if(b){ytShift[v]=(ytShift[v]||0)+ +b.dataset.sh;draw()}});draw();tr.after(row)}
+$('tbody').addEventListener('click',e=>{const y=e.target.closest('[data-yt]');if(y){openPlayer(y.closest('tr'),hits[+y.dataset.yt]);return}
+const b=e.target.closest('.play');if(!b)return;const h=hits[+b.dataset.ix],s=h.s,a=Math.max(0,h.i-3),z=Math.min(s.pi.length,h.i+h.n+3),t0=s.on[a]
 tone(Array.from({length:z-a},(_,k)=>({p:s.pi[a+k],t:s.on[a+k]-t0,d:s.du[a+k]})))})
 document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;sortD=k===sortK?-sortD:1;sortK=k;renderTable()}))
 $('more').onclick=()=>{shown+=100;renderTable()}
@@ -215,8 +239,8 @@ const N=b.length/5,dv=new DataView(b.buffer,b.byteOffset,b.length),pi=b.subarray
 for(const s of d.solos){let t=0;for(let j=k;j<k+s.n;j++){t+=dv.getUint16(N+2*j,true)/100;on[j]=t;du[j]=dv.getUint16(3*N+2*j,true)/100}
 s.pi=pi.subarray(k,k+s.n);s.on=on.subarray(k,k+s.n);s.du=du.subarray(k,k+s.n);k+=s.n}return d}
 const get=async f=>{try{const r=await fetch(f);if(!r.ok)return null;const d=await r.json();return d.bin?await unpack(d):d}catch(e){return null}}
-async function load(){let ds=(await Promise.all(FILES.map(get))).filter(Boolean);if(!ds.length)ds=[await get('sample.json')]
-solos=ds.flatMap(d=>d.solos.map(s=>(s.g=s.g||d.genre||'Jazz',s)))
+async function load(){const yt=get('youtube.json');let ds=(await Promise.all(FILES.map(get))).filter(Boolean);if(!ds.length)ds=[await get('sample.json')]
+solos=ds.flatMap(d=>d.solos.map(s=>(s.g=s.g||d.genre||'Jazz',s)));const ym=await yt||{};for(const d of ds)if(!d.demo&&/Weimar/.test(d.source))for(const s of d.solos)if(ym[s.id])s.yt=ym[s.id]
 const gs=[...new Set(solos.map(s=>s.g))].sort(),c={};solos.forEach(s=>c[s.g]=(c[s.g]||0)+1)
 $('genre').innerHTML='<option value="">All genres</option>'+gs.map(g=>`<option value="${esc(g)}">${esc(g)} (${c[g].toLocaleString()})</option>`).join('');$('genre').hidden=gs.length<2
 const n=solos.reduce((a,s)=>a+s.pi.length,0),ys=solos.map(s=>s.y).filter(Boolean)
